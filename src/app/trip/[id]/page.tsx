@@ -24,8 +24,12 @@ export default async function TripDetailPage({
       trip={trip}
       expectedDays={duration}
       destination={row.destination}
-      imageUrl={row.imageUrl}
-      imageAttribution={row.imageAttribution}
+      destinationLat={
+        row.destinationLat != null ? Number(row.destinationLat) : null
+      }
+      destinationLng={
+        row.destinationLng != null ? Number(row.destinationLng) : null
+      }
     />
   );
 }

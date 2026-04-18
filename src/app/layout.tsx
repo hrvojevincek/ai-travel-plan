@@ -4,6 +4,7 @@ import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "sonner";
 import QueryProvider from "@/components/query-provider";
+import { MapsApiProvider } from "@/features/maps";
 
 const hind = Hind({
   variable: "--font-hind",
@@ -26,7 +27,9 @@ export default function RootLayout({
       <body className={`${hind.variable} antialiased`}>
         <QueryProvider>
           <NuqsAdapter>
-            {children} <Toaster />
+            <MapsApiProvider>
+              {children} <Toaster />
+            </MapsApiProvider>
           </NuqsAdapter>
         </QueryProvider>
       </body>
