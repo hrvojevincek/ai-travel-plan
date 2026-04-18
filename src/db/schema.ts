@@ -1,5 +1,16 @@
-import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  numeric,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -73,9 +84,79 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const activityType = pgEnum("activity_type", [
+  "sightseeing",
+  "food",
+  "transport",
+  "accommodation",
+  "entertainment",
+  "shopping",
+  "other",
+]);
+
+export const trip = pgTable(
+  "trip",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    destination: text("destination").notNull(),
+    summary: text("summary"),
+    totalEstimatedCost: numeric("total_estimated_cost", { precision: 10, scale: 2 }),
+    imageUrl: text("image_url"),
+    imageAttribution: text("image_attribution"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("trip_userId_idx").on(table.userId)],
+);
+
+export const day = pgTable(
+  "day",
+  {
+    id: text("id").primaryKey(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trip.id, { onDelete: "cascade" }),
+    dayNumber: integer("day_number").notNull(),
+  },
+  (table) => [
+    index("day_tripId_idx").on(table.tripId),
+    uniqueIndex("day_tripId_dayNumber_uniq").on(table.tripId, table.dayNumber),
+    check("chk_day_dayNumber_min", sql`${table.dayNumber} >= 1`),
+  ],
+);
+
+export const activity = pgTable(
+  "activity",
+  {
+    id: text("id").primaryKey(),
+    dayId: text("day_id")
+      .notNull()
+      .references(() => day.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    type: activityType("type").notNull(),
+    durationMinutes: integer("duration_minutes"),
+    address: text("address"),
+    estimatedCost: numeric("estimated_cost", { precision: 10, scale: 2 }),
+    orderIndex: integer("order_index").notNull(),
+  },
+  (table) => [
+    index("activity_dayId_idx").on(table.dayId),
+    uniqueIndex("activity_dayId_orderIndex_uniq").on(table.dayId, table.orderIndex),
+    check("chk_activity_orderIndex_min", sql`${table.orderIndex} >= 0`),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  trips: many(trip),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -89,5 +170,28 @@ export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
     references: [user.id],
+  }),
+}));
+
+export const tripRelations = relations(trip, ({ one, many }) => ({
+  user: one(user, {
+    fields: [trip.userId],
+    references: [user.id],
+  }),
+  days: many(day),
+}));
+
+export const dayRelations = relations(day, ({ one, many }) => ({
+  trip: one(trip, {
+    fields: [day.tripId],
+    references: [trip.id],
+  }),
+  activities: many(activity),
+}));
+
+export const activityRelations = relations(activity, ({ one }) => ({
+  day: one(day, {
+    fields: [activity.dayId],
+    references: [day.id],
   }),
 }));
