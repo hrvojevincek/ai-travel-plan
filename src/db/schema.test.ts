@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { activity, day, trip, user } from "@/db/schema";
-import { createTestDb } from "../test/db";
+import { useTestDb } from "../test/db";
 
 describe("trip schema", () => {
   it("cascades deletes: user → trip → day → activity", async () => {
-    const { db } = await createTestDb();
+    const { db } = await useTestDb();
 
     await db.insert(user).values({
       id: "u1",
@@ -34,7 +34,7 @@ describe("trip schema", () => {
   });
 
   it("enforces unique (tripId, dayNumber)", async () => {
-    const { db } = await createTestDb();
+    const { db } = await useTestDb();
     await db.insert(user).values({ id: "u1", name: "A", email: "a@b.c" });
     await db.insert(trip).values({ id: "t1", userId: "u1", destination: "X" });
     await db.insert(day).values({ id: "d1", tripId: "t1", dayNumber: 1 });
@@ -45,7 +45,7 @@ describe("trip schema", () => {
   });
 
   it("enforces unique (dayId, orderIndex)", async () => {
-    const { db } = await createTestDb();
+    const { db } = await useTestDb();
     await db.insert(user).values({ id: "u1", name: "A", email: "a@b.c" });
     await db.insert(trip).values({ id: "t1", userId: "u1", destination: "X" });
     await db.insert(day).values({ id: "d1", tripId: "t1", dayNumber: 1 });

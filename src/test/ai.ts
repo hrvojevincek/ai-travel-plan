@@ -1,3 +1,4 @@
+import type { LanguageModelV3CallOptions, LanguageModelV3GenerateResult } from "@ai-sdk/provider";
 import { MockLanguageModelV3 } from "ai/test";
 
 /**
@@ -6,13 +7,14 @@ import { MockLanguageModelV3 } from "ai/test";
  */
 export function mockObjectModel<T>(value: T): MockLanguageModelV3 {
   return new MockLanguageModelV3({
-    // biome-ignore lint/suspicious/noExplicitAny: doGenerate result type is deeply nested
-    doGenerate: (async () => ({
+    doGenerate: async (_options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> => ({
       content: [{ type: "text", text: JSON.stringify(value) }],
-      finishReason: "stop",
-      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+      finishReason: { unified: "stop", raw: undefined },
+      usage: {
+        inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+        outputTokens: { total: 1, text: 1, reasoning: undefined },
+      },
       warnings: [],
-      // biome-ignore lint/suspicious/noExplicitAny: see above
-    })) as any,
+    }),
   });
 }

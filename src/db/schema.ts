@@ -1,6 +1,7 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   numeric,
@@ -126,6 +127,7 @@ export const day = pgTable(
   (table) => [
     index("day_tripId_idx").on(table.tripId),
     uniqueIndex("day_tripId_dayNumber_uniq").on(table.tripId, table.dayNumber),
+    check("chk_day_dayNumber_min", sql`${table.dayNumber} >= 1`),
   ],
 );
 
@@ -147,6 +149,7 @@ export const activity = pgTable(
   (table) => [
     index("activity_dayId_idx").on(table.dayId),
     uniqueIndex("activity_dayId_orderIndex_uniq").on(table.dayId, table.orderIndex),
+    check("chk_activity_orderIndex_min", sql`${table.orderIndex} >= 0`),
   ],
 );
 
