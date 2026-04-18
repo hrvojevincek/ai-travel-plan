@@ -1,7 +1,7 @@
+import { requireGuest } from "@/features/auth";
 import { RegisterForm } from "@/features/auth/components/register-form";
-import { requireUnauth } from "@/lib/auth-utils";
 
 export default async function Page() {
-  await requireUnauth();
+  await requireGuest();
   return <RegisterForm />;
 }
