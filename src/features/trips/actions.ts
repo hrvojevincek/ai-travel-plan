@@ -32,11 +32,11 @@ export async function saveTrip(raw: unknown): Promise<SaveTripResult> {
     revalidatePath("/dashboard");
     return { ok: true, id };
   } catch (e) {
-    return {
-      ok: false,
-      code: "FAILED",
-      message: e instanceof Error ? e.message : "Unknown error",
-    };
+    console.error(
+      "[saveTrip] failed:",
+      e instanceof Error ? { message: e.message, stack: e.stack } : e
+    );
+    return { ok: false, code: "FAILED" };
   }
 }
 
@@ -58,10 +58,10 @@ export async function deleteTripAction(id: string): Promise<DeleteTripResult> {
     revalidatePath("/dashboard");
     return { ok: true };
   } catch (e) {
-    return {
-      ok: false,
-      code: "FAILED",
-      message: e instanceof Error ? e.message : "Unknown error",
-    };
+    console.error(
+      "[deleteTripAction] failed:",
+      e instanceof Error ? { message: e.message, stack: e.stack } : e
+    );
+    return { ok: false, code: "FAILED" };
   }
 }
