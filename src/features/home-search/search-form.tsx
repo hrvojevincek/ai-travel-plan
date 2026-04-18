@@ -14,7 +14,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { buildTripNewHref, SearchFormSchema, type SearchFormValues } from "./schema";
+import {
+  buildTripNewHref,
+  SearchFormSchema,
+  type SearchFormValues,
+} from "./schema";
 
 export function SearchForm() {
   const router = useRouter();
@@ -33,20 +37,25 @@ export function SearchForm() {
 
   const isPending = form.formState.isSubmitting;
 
+  const inputClass =
+    "h-11 border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30";
+  const labelClass = "text-white/90 font-medium";
+
   return (
     <Form {...form}>
-      <form onSubmit={submit} className="flex w-full max-w-xl flex-col gap-4">
+      <form onSubmit={submit} className="flex w-full flex-col gap-5">
         <FormField
           control={form.control}
           name="destination"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Destination</FormLabel>
+              <FormLabel className={labelClass}>Destination</FormLabel>
               <FormControl>
                 <Input
                   {...field}
                   placeholder="Lisbon, Portugal"
                   autoComplete="off"
+                  className={inputClass}
                 />
               </FormControl>
               <FormMessage />
@@ -58,7 +67,7 @@ export function SearchForm() {
           name="duration"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Duration (days)</FormLabel>
+              <FormLabel className={labelClass}>Duration (days)</FormLabel>
               <FormControl>
                 <Input
                   {...field}
@@ -66,6 +75,7 @@ export function SearchForm() {
                   inputMode="numeric"
                   min={1}
                   max={30}
+                  className={inputClass}
                 />
               </FormControl>
               <FormMessage />
@@ -77,19 +87,27 @@ export function SearchForm() {
           name="preferences"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Preferences (optional)</FormLabel>
+              <FormLabel className={labelClass}>
+                Preferences <span className="text-white/60">(optional)</span>
+              </FormLabel>
               <FormControl>
                 <Textarea
                   {...field}
                   placeholder="Vegan, no museums, local markets..."
                   rows={3}
+                  className="resize-none border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30"
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isPending}>
+        <Button
+          type="submit"
+          size="lg"
+          className="h-12 w-full text-base font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
+          disabled={isPending}
+        >
           Plan my trip
         </Button>
       </form>
