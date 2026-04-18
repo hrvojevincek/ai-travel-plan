@@ -117,22 +117,29 @@ describe("geocodeMany", () => {
   });
 
   it("preserves input order and fires requests in parallel", async () => {
-    const calls: string[] = [];
+    const startTimes: Record<string, number> = {};
+    const endTimes: Record<string, number> = {};
+    const DELAY_MS = 30;
+    const coords: Record<string, { lat: number; lng: number }> = {
+      a: { lat: 1, lng: 1 },
+      b: { lat: 2, lng: 2 },
+      c: { lat: 3, lng: 3 },
+    };
+
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = input.toString();
-      const match = /[?&]address=([^&]+)/.exec(url);
-      const addr = decodeURIComponent(match?.[1] ?? "");
-      calls.push(addr);
-      const coords: Record<string, { lat: number; lng: number }> = {
-        a: { lat: 1, lng: 1 },
-        b: { lat: 2, lng: 2 },
-        c: { lat: 3, lng: 3 },
-      };
-      const loc = coords[addr] ?? coords.a;
+      const addr = decodeURIComponent(
+        /[?&]address=([^&]+)/.exec(url)?.[1] ?? ""
+      );
+      startTimes[addr] = Date.now();
+      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      endTimes[addr] = Date.now();
       return new Response(
         JSON.stringify({
           status: "OK",
-          results: [{ geometry: { location: loc } }],
+          results: [
+            { geometry: { location: coords[addr] ?? coords.a } },
+          ],
         }),
         { status: 200 }
       );
@@ -152,9 +159,12 @@ describe("geocodeMany", () => {
       { latitude: 2, longitude: 2 },
       { latitude: 3, longitude: 3 },
     ]);
-    // All three fired (order in calls[] is not asserted — Promise.all is
-    // parallel so interleaving is implementation-defined).
-    expect(calls).toHaveLength(3);
+
+    // Concurrency proof: later requests started before earlier ones
+    // completed. Would fail under sequential `for..of await`.
+    expect(startTimes.b).toBeLessThan(endTimes.a);
+    expect(startTimes.c).toBeLessThan(endTimes.a);
+    expect(startTimes.c).toBeLessThan(endTimes.b);
   });
 
   it("keeps a null slot for individual failures without breaking siblings", async () => {
