@@ -3,28 +3,32 @@ import { SearchForm } from "@/features/home-search";
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen overflow-hidden">
       <Image src="/wings.avif" alt="" fill priority className="object-cover" />
-      <div className="flex h-screen flex-col items-center justify-center gap-10">
+      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/70" />
+
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
         <Image
           src="/logo.svg"
-          alt="Voyago Logo"
-          width={300}
-          height={300}
-          className="z-10"
+          alt="Voyago"
+          width={220}
+          height={80}
+          className="mb-8 drop-shadow-lg"
+          priority
         />
-        <div className="relative h-[600px] w-[600px]">
-          <div className="bg-opacity-10 absolute h-full w-full rounded-full backdrop-blur-md"></div>
-          <div className="relative z-10 flex h-[600px] flex-col items-center justify-center">
-            <h2 className="mb-10 inline-block w-96 text-center text-5xl font-extrabold text-white drop-shadow-xl">
+
+        <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-8 rounded-2xl border border-white/20 bg-white/10 p-8 shadow-2xl backdrop-blur-xl sm:p-10">
+          <div className="text-center">
+            <h1 className="text-balance text-4xl font-extrabold tracking-tight text-white drop-shadow-md sm:text-5xl">
               Let&apos;s <span className="text-primary">start</span> your
               journey
-            </h2>
-
-            <div className="mt-4 w-full px-6">
-              <SearchForm />
-            </div>
+            </h1>
+            <p className="mt-3 text-pretty text-sm text-white/80 sm:text-base">
+              Tell us where and how long. AI builds a full itinerary in seconds.
+            </p>
           </div>
+
+          <SearchForm />
         </div>
       </div>
     </div>
