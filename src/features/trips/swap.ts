@@ -118,7 +118,7 @@ function buildPrompt({
     retryNote,
     "Output requirements:",
     `- type MUST be "${target.type}" (preserve the slot).`,
-    "- Name, description, address, duration, estimatedCost for the new activity.",
+    "- Name, description, address, durationMinutes, estimatedCost for the new activity.",
     "- Must be DIFFERENT from the activity being replaced.",
     "- Must NOT duplicate any of the existing activities listed above.",
     `- Should fit the vibe of day ${day.dayNumber} in ${trip.destination}.`,
