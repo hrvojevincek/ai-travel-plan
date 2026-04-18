@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright-cli local cache + ad-hoc screenshots
+/.playwright-cli/
+/*.png

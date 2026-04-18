@@ -13,6 +13,9 @@ const Body = z.object({
 
 const ACTIVITIES_PER_DAY = 7;
 
+// TODO(KRE-28): Endpoint is intentionally unauthenticated per KRE-16/KRE-17
+// (unauth users can generate; auth is prompted at save time). Add rate limiting
+// before production to cap OpenAI spend from abuse.
 export async function POST(req: Request) {
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
