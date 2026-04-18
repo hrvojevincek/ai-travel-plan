@@ -21,11 +21,13 @@ interface GeocodeApiResponse {
 }
 
 const ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json";
+const TIMEOUT_MS = 5_000;
 
 /**
  * Geocode a single address via Google's Geocoding API.
- * Returns `null` on ZERO_RESULTS, quota errors, or any network failure —
- * the caller can still persist the activity without a pin.
+ * Returns `null` on ZERO_RESULTS, quota errors, network failure, or timeout —
+ * the caller can still persist the activity without a pin. Uses an
+ * AbortController so one slow request can't drag out a batch save.
  */
 export async function geocodeOne(
   query: string,
@@ -42,8 +44,11 @@ export async function geocodeOne(
   url.searchParams.set("address", query);
   url.searchParams.set("key", key);
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   try {
-    const res = await fetcher(url.toString());
+    const res = await fetcher(url.toString(), { signal: controller.signal });
     if (!res.ok) {
       console.warn(`[geocode] http ${res.status} for query="${query}"`);
       return null;
@@ -60,11 +65,17 @@ export async function geocodeOne(
     );
     return null;
   } catch (e) {
-    console.warn(
-      `[geocode] fetch failed for query="${query}":`,
-      e instanceof Error ? e.message : e
-    );
+    if (e instanceof Error && e.name === "AbortError") {
+      console.warn(`[geocode] timeout (${TIMEOUT_MS}ms) for query="${query}"`);
+    } else {
+      console.warn(
+        `[geocode] fetch failed for query="${query}":`,
+        e instanceof Error ? e.message : e
+      );
+    }
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

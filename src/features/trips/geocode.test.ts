@@ -63,6 +63,36 @@ describe("geocodeOne", () => {
     expect(await geocodeOne("anything", fetcher)).toBeNull();
   });
 
+  it("aborts a slow request after the timeout and returns null", async () => {
+    vi.useFakeTimers();
+    try {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      // Fetcher that resolves only when its signal aborts — mirrors how
+      // real fetch surfaces an AbortError.
+      const fetcher = vi.fn(
+        (_url: string | URL, init?: RequestInit) =>
+          new Promise<Response>((_, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              const err = new Error("aborted");
+              err.name = "AbortError";
+              reject(err);
+            });
+          })
+      ) as unknown as typeof fetch;
+
+      const pending = geocodeOne("Tram 28, Lisbon", fetcher);
+      // Advance past the 5s timeout so the internal setTimeout fires.
+      await vi.advanceTimersByTimeAsync(6_000);
+
+      await expect(pending).resolves.toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("timeout")
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("returns null when GOOGLE_MAPS_SERVER_KEY is not set", async () => {
     process.env.GOOGLE_MAPS_SERVER_KEY = "";
     const fetcher = vi.fn() as unknown as typeof fetch;
