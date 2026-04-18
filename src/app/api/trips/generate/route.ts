@@ -3,6 +3,9 @@ import { streamObject } from "ai";
 import { z } from "zod";
 import { GeneratedTrip } from "@/features/trips/generate";
 
+// Edge runtime: cheaper cold-starts and better streaming tolerance on Hobby
+// plans (Node serverless capped at 60s total; Edge keeps long streams alive).
+export const runtime = "edge";
 export const maxDuration = 60;
 
 const Body = z.object({
@@ -45,11 +48,34 @@ export async function POST(req: Request) {
     prefLine,
   ].join("\n");
 
-  const result = streamObject({
-    model: openai("gpt-4o-mini"),
-    schema: GeneratedTrip,
-    prompt,
-  });
+  try {
+    const result = streamObject({
+      model: openai("gpt-4o-mini"),
+      schema: GeneratedTrip,
+      prompt,
+      onError: ({ error }) => {
+        console.error("[trips/generate] stream error:", error);
+        throw new Error(friendlyMessage(error));
+      },
+    });
 
-  return result.toTextStreamResponse();
+    return result.toTextStreamResponse();
+  } catch (error) {
+    console.error("[trips/generate] sync error:", error);
+    return Response.json({ error: friendlyMessage(error) }, { status: 502 });
+  }
+}
+
+function friendlyMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  if (/insufficient_quota|quota|billing/i.test(raw)) {
+    return "The AI service is out of credits. Please contact the site owner.";
+  }
+  if (/rate[_\s-]?limit|429/i.test(raw)) {
+    return "Too many requests right now. Wait a minute and try again.";
+  }
+  if (/invalid_api_key|unauthorized|401/i.test(raw)) {
+    return "The AI service isn't configured correctly.";
+  }
+  return "Couldn't generate your trip. Please try again.";
 }

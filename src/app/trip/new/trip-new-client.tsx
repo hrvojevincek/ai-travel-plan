@@ -29,6 +29,9 @@ export function TripNewClient() {
   const { object, submit, isLoading, error, stop } = useObject({
     api: "/api/trips/generate",
     schema: GeneratedTrip,
+    onError: (err) => {
+      toast.error(err.message || "Couldn't generate your trip.");
+    },
   });
 
   const didSubmit = useRef(false);
@@ -37,6 +40,14 @@ export function TripNewClient() {
     didSubmit.current = true;
     submit({ destination, duration, preferences });
   }, [mock, destination, duration, preferences, submit]);
+
+  const toastedError = useRef<string | null>(null);
+  useEffect(() => {
+    if (!error) return;
+    if (toastedError.current === error.message) return;
+    toastedError.current = error.message;
+    toast.error(error.message);
+  }, [error]);
 
   const trip = mock ? mockTrip : object;
   const canSave = !isLoading && !isSaving && !!trip?.days?.length;
