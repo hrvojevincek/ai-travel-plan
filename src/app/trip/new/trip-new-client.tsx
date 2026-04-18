@@ -1,10 +1,11 @@
 "use client";
 
 import { experimental_useObject as useObject } from "@ai-sdk/react";
-import { ArrowLeft, RotateCw } from "lucide-react";
+import { RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { GeneratedTrip } from "@/features/trips/generate";
 import { mockTrip } from "@/features/trips/mock";
@@ -38,76 +39,37 @@ export function TripNewClient() {
     return <InvalidState />;
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <TopBar
-        showStop={isLoading}
-        onStop={stop}
+  if (error) {
+    return (
+      <ErrorState
+        message={error.message}
         onRetry={() => {
           didSubmit.current = true;
           submit({ destination, duration, preferences });
         }}
-        canRetry={!!error && !isLoading}
       />
+    );
+  }
 
-      {error ? (
-        <ErrorState
-          message={error.message}
-          onRetry={() => {
-            didSubmit.current = true;
-            submit({ destination, duration, preferences });
-          }}
-        />
-      ) : (
-        <TripView
-          trip={trip}
-          expectedDays={duration}
-          destination={destination}
-          isStreaming={isLoading && !mock}
-        />
-      )}
-    </div>
-  );
-}
-
-function TopBar({
-  showStop,
-  onStop,
-  onRetry,
-  canRetry,
-}: {
-  showStop: boolean;
-  onStop: () => void;
-  onRetry: () => void;
-  canRetry: boolean;
-}) {
   return (
-    <div className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            New search
-          </Link>
-        </Button>
-        <div className="flex items-center gap-2">
-          {showStop && (
-            <Button variant="outline" size="sm" onClick={onStop}>
-              Stop
-            </Button>
-          )}
-          {canRetry && (
-            <Button variant="outline" size="sm" onClick={onRetry}>
-              <RotateCw className="mr-1 h-4 w-4" />
-              Retry
-            </Button>
-          )}
-          <Button size="sm" disabled>
-            Save trip
+    <>
+      <TripView
+        trip={trip}
+        expectedDays={duration}
+        destination={destination}
+        isStreaming={isLoading && !mock}
+        canSave={!isLoading && !!trip?.days?.length}
+        saveLabel="Save trip"
+        onSave={() => toast.info("Save coming in the next step.")}
+      />
+      {isLoading && !mock && (
+        <div className="fixed bottom-4 right-4 z-30">
+          <Button variant="outline" size="sm" onClick={stop}>
+            Stop generating
           </Button>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
@@ -119,7 +81,7 @@ function ErrorState({
   onRetry: () => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 py-24 text-center">
+    <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col items-center justify-center gap-4 px-4 text-center">
       <h2 className="text-2xl font-bold">Couldn&apos;t plan that trip</h2>
       <p className="text-muted-foreground">{message}</p>
       <div className="flex gap-2">
@@ -137,7 +99,7 @@ function ErrorState({
 
 function InvalidState() {
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 py-24 text-center">
+    <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col items-center justify-center gap-4 px-4 text-center">
       <h2 className="text-2xl font-bold">Missing trip details</h2>
       <p className="text-muted-foreground">
         Start from the home page to plan a new trip.

@@ -1,14 +1,7 @@
-import {
-  ChefHat,
-  Clock,
-  Coffee,
-  MapPin,
-  Sparkles,
-  UtensilsCrossed,
-  Wallet,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Clock, MapPin, RefreshCw, Sparkles, Wallet } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { GeneratedActivityTypeT, GeneratedTripT } from "../generate";
@@ -32,6 +25,10 @@ interface TripViewProps {
   expectedDays: number;
   destination: string;
   isStreaming?: boolean;
+  onSave?: () => void;
+  canSave?: boolean;
+  saveLabel?: string;
+  onSwapActivity?: (dayNumber: number, activityIndex: number) => void;
 }
 
 export function TripView({
@@ -39,89 +36,98 @@ export function TripView({
   expectedDays,
   destination,
   isStreaming,
+  onSave,
+  canSave,
+  saveLabel = "Save trip",
+  onSwapActivity,
 }: TripViewProps) {
   const days = trip?.days ?? [];
   const title = trip?.destination ?? destination;
-
   const dayPlaceholders = Array.from({ length: expectedDays }, (_, i) => i + 1);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-12">
-      <TripHeader
-        destination={title}
-        summary={trip?.summary}
-        totalCost={trip?.totalEstimatedCost}
-        duration={expectedDays}
-        isStreaming={isStreaming}
-      />
+    <div className="flex min-h-screen w-full flex-col sm:flex-row">
+      <aside className="w-full overflow-y-auto bg-white p-6 shadow-md sm:h-screen sm:w-[420px] sm:shrink-0 md:w-[480px] lg:w-[520px]">
+        <ActivitiesHeader
+          title={title}
+          duration={expectedDays}
+          onSave={onSave}
+          canSave={canSave}
+          saveLabel={saveLabel}
+        />
 
-      <div className="mt-10 space-y-10">
-        {dayPlaceholders.map((dayNum) => {
-          const day = days.find((d) => d?.dayNumber === dayNum);
-          return (
-            <DaySection
-              key={dayNum}
-              dayNumber={dayNum}
-              activities={day?.activities}
-              isStreaming={isStreaming}
-            />
-          );
-        })}
-      </div>
+        <div className="mt-10 space-y-10">
+          {dayPlaceholders.map((dayNum) => {
+            const day = days.find((d) => d?.dayNumber === dayNum);
+            return (
+              <DaySection
+                key={dayNum}
+                dayNumber={dayNum}
+                activities={day?.activities}
+                isStreaming={isStreaming}
+                onSwapActivity={onSwapActivity}
+              />
+            );
+          })}
+        </div>
+      </aside>
+
+      <section className="relative flex-1 bg-muted/30 sm:h-screen sm:overflow-y-auto">
+        <SummaryPanel
+          destination={title}
+          summary={trip?.summary}
+          totalCost={trip?.totalEstimatedCost}
+          duration={expectedDays}
+          days={days}
+          isStreaming={isStreaming}
+        />
+      </section>
     </div>
   );
 }
 
-function TripHeader({
-  destination,
-  summary,
-  totalCost,
+function ActivitiesHeader({
+  title,
   duration,
-  isStreaming,
+  onSave,
+  canSave,
+  saveLabel,
 }: {
-  destination: string;
-  summary: string | undefined;
-  totalCost: number | undefined;
+  title: string;
   duration: number;
-  isStreaming?: boolean;
+  onSave?: () => void;
+  canSave?: boolean;
+  saveLabel: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border bg-linear-to-br from-primary/15 via-background to-background p-6 sm:p-8">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--color-primary),transparent_60%)]/[30] opacity-40" />
-      <div className="relative">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span>{duration}-day itinerary</span>
-          {isStreaming && (
-            <span className="ml-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-              </span>
-              Generating
-            </span>
-          )}
-        </div>
-
-        <h1 className="mt-3 text-balance text-4xl font-extrabold tracking-tight capitalize sm:text-5xl">
-          {destination}
-        </h1>
-
-        <div className="mt-4 min-h-12 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">
-          {summary ?? <Skeleton className="h-5 w-3/4" />}
-        </div>
-
-        {totalCost != null ? (
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border bg-background/80 px-4 py-2 text-sm font-semibold shadow-sm backdrop-blur">
-            <Wallet className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">Est. total</span>
-            <span className="tabular-nums">€{Math.round(totalCost)}</span>
-          </div>
-        ) : (
-          <Skeleton className="mt-6 h-9 w-40 rounded-full" />
+    <>
+      <div className="mb-10 flex w-full items-center justify-between">
+        <Link href="/" aria-label="Home">
+          <Image
+            src="/logo.svg"
+            alt="Voyago"
+            width={120}
+            height={40}
+            priority
+          />
+        </Link>
+        {onSave && (
+          <Button
+            size="sm"
+            onClick={onSave}
+            disabled={!canSave}
+            className="font-semibold"
+          >
+            {saveLabel}
+          </Button>
         )}
       </div>
-    </div>
+
+      <h1 className="mt-10 flex w-full align-middle text-4xl font-extrabold capitalize">
+        View {duration} day itinerary
+      </h1>
+      <p className="mt-2 text-sm text-muted-foreground">{title}</p>
+    </>
   );
 }
 
@@ -129,32 +135,35 @@ function DaySection({
   dayNumber,
   activities,
   isStreaming,
+  onSwapActivity,
 }: {
   dayNumber: number;
   activities: (PartialActivity | undefined)[] | undefined;
   isStreaming?: boolean;
+  onSwapActivity?: (dayNumber: number, activityIndex: number) => void;
 }) {
   const hasContent = Array.isArray(activities) && activities.length > 0;
 
   return (
-    <section>
-      <div className="mb-5 flex items-center gap-3">
-        <h2 className="text-2xl font-bold tracking-tight">
-          Day <span className="text-primary">{dayNumber}</span>
-        </h2>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
+    <section className="max-w-2xl pt-6">
+      <h2 className="mb-2 text-lg font-semibold">Day {dayNumber}</h2>
       {hasContent ? (
-        <ol className="space-y-3">
+        <ol className="space-y-4">
           {activities.map((a, i) => (
             <li key={`day-${dayNumber}-${SKELETON_KEYS[i] ?? i}`}>
-              <ActivityCard activity={a} />
+              <ActivityCard
+                activity={a}
+                onSwap={
+                  onSwapActivity
+                    ? () => onSwapActivity(dayNumber, i)
+                    : undefined
+                }
+              />
             </li>
           ))}
         </ol>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {SKELETON_KEYS.slice(0, isStreaming ? 3 : 7).map((k) => (
             <ActivitySkeleton key={`sk-${dayNumber}-${k}`} />
           ))}
@@ -164,106 +173,188 @@ function DaySection({
   );
 }
 
-const typeMeta: Record<
-  GeneratedActivityTypeT,
-  { label: string; Icon: typeof Coffee; tint: string }
-> = {
-  breakfast: {
-    label: "Breakfast",
-    Icon: Coffee,
-    tint: "bg-amber-100 text-amber-900 border-amber-200",
-  },
-  lunch: {
-    label: "Lunch",
-    Icon: UtensilsCrossed,
-    tint: "bg-orange-100 text-orange-900 border-orange-200",
-  },
-  dinner: {
-    label: "Dinner",
-    Icon: ChefHat,
-    tint: "bg-rose-100 text-rose-900 border-rose-200",
-  },
-  activity: {
-    label: "Activity",
-    Icon: Sparkles,
-    tint: "bg-sky-100 text-sky-900 border-sky-200",
-  },
+const typeLabel: Record<GeneratedActivityTypeT, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  activity: "Activity",
 };
 
-function ActivityCard({ activity }: { activity: PartialActivity | undefined }) {
+function ActivityCard({
+  activity,
+  onSwap,
+}: {
+  activity: PartialActivity | undefined;
+  onSwap?: () => void;
+}) {
   if (!activity) return <ActivitySkeleton />;
 
-  const meta = activity.type ? typeMeta[activity.type] : typeMeta.activity;
-  const Icon = meta.Icon;
-  const isMeal = activity.type && activity.type !== "activity";
-
   return (
-    <Card
+    <div
       className={cn(
-        "group relative overflow-hidden transition-colors hover:border-primary/40",
-        isMeal && "bg-muted/30"
+        "group relative flex justify-stretch rounded-md border-2 border-zinc-100 p-4 transition-colors hover:border-zinc-400"
       )}
     >
-      <CardContent className="flex gap-4 p-4 sm:p-5">
-        <div
-          className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border",
-            meta.tint
-          )}
+      {onSwap && (
+        <button
+          type="button"
+          onClick={onSwap}
+          aria-label="Swap activity"
+          className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 opacity-0 transition hover:bg-zinc-100 hover:text-zinc-700 group-hover:opacity-100"
         >
-          <Icon className="h-5 w-5" />
+          <RefreshCw className="h-4 w-4" />
+        </button>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-3 text-zinc-700">
+          {activity.durationMinutes != null && (
+            <span className="inline-flex items-center gap-1 text-sm">
+              <Clock className="mb-0.5 inline-block h-4 w-4 text-zinc-400" />
+              {formatDuration(activity.durationMinutes)}
+            </span>
+          )}
+          {activity.type && (
+            <span className="text-xs uppercase tracking-wide text-zinc-400">
+              {typeLabel[activity.type]}
+            </span>
+          )}
+          {activity.estimatedCost != null && (
+            <span className="ml-auto text-sm font-semibold tabular-nums">
+              €{Math.round(activity.estimatedCost)}
+            </span>
+          )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="mb-1 flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="capitalize">
-              {meta.label}
-            </Badge>
-            {activity.durationMinutes != null && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                {formatDuration(activity.durationMinutes)}
-              </span>
-            )}
-            {activity.estimatedCost != null && (
-              <span className="ml-auto text-sm font-semibold tabular-nums">
-                €{Math.round(activity.estimatedCost)}
-              </span>
-            )}
+        <div className="mt-1 text-lg font-semibold capitalize tracking-tight text-primary">
+          {activity.name?.toLowerCase() ?? <Skeleton className="h-5 w-2/3" />}
+        </div>
+        {activity.description && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {activity.description}
+          </p>
+        )}
+        {activity.address ? (
+          <div className="mt-2 inline-flex max-w-full items-start gap-1 text-xs text-zinc-500">
+            <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+            <span className="truncate">{activity.address}</span>
           </div>
-          <h3 className="text-base font-semibold leading-tight sm:text-lg">
-            {activity.name ?? <Skeleton className="h-5 w-2/3" />}
-          </h3>
-          {activity.description ? (
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              {activity.description}
-            </p>
-          ) : activity.name ? null : (
-            <Skeleton className="mt-1.5 h-4 w-5/6" />
-          )}
-          {activity.address && (
-            <div className="mt-2 inline-flex max-w-full items-start gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
-              <span className="truncate">{activity.address}</span>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        ) : activity.name ? null : (
+          <Skeleton className="mt-2 h-3 w-5/6" />
+        )}
+      </div>
+    </div>
   );
 }
 
 function ActivitySkeleton() {
   return (
-    <Card>
-      <CardContent className="flex gap-4 p-4 sm:p-5">
-        <Skeleton className="h-11 w-11 shrink-0 rounded-lg" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-5 w-2/3" />
-          <Skeleton className="h-4 w-5/6" />
+    <div className="rounded-md border-2 border-zinc-100 p-4">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="h-3 w-5/6" />
+      </div>
+    </div>
+  );
+}
+
+function SummaryPanel({
+  destination,
+  summary,
+  totalCost,
+  duration,
+  days,
+  isStreaming,
+}: {
+  destination: string;
+  summary: string | undefined;
+  totalCost: number | undefined;
+  duration: number;
+  days: (PartialDay | undefined)[];
+  isStreaming?: boolean;
+}) {
+  const dayTotals = Array.from({ length: duration }, (_, i) => {
+    const d = days.find((x) => x?.dayNumber === i + 1);
+    const acts = d?.activities ?? [];
+    const sum = acts.reduce(
+      (acc, a) =>
+        acc + (typeof a?.estimatedCost === "number" ? a.estimatedCost : 0),
+      0
+    );
+    return { day: i + 1, cost: sum, count: acts.length };
+  });
+
+  return (
+    <div className="flex min-h-full flex-col gap-6 p-6 sm:p-10">
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border bg-linear-to-br from-primary/20 via-primary/5 to-background shadow-sm">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,var(--color-primary),transparent_60%)] opacity-30" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,var(--color-primary),transparent_50%)] opacity-20" />
+        <div className="absolute bottom-0 left-0 right-0 p-6">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            {duration}-day itinerary
+            {isStreaming && (
+              <span className="ml-1 inline-flex items-center gap-1 text-primary">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                </span>
+                Generating
+              </span>
+            )}
+          </div>
+          <h2 className="mt-2 text-balance text-3xl font-extrabold capitalize sm:text-4xl">
+            {destination}
+          </h2>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          Overview
+        </h3>
+        {summary ? (
+          <p className="mt-2 text-pretty text-base text-zinc-700">{summary}</p>
+        ) : (
+          <div className="mt-2 space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            Budget
+          </h3>
+          <div className="inline-flex items-center gap-2 text-sm font-semibold">
+            <Wallet className="h-4 w-4 text-primary" />
+            {totalCost != null ? (
+              <span className="tabular-nums">€{Math.round(totalCost)}</span>
+            ) : (
+              <Skeleton className="h-5 w-16" />
+            )}
+          </div>
+        </div>
+        <ul className="mt-3 divide-y text-sm">
+          {dayTotals.map((d) => (
+            <li
+              key={`budget-day-${d.day}`}
+              className="flex items-center justify-between py-2"
+            >
+              <span className="text-zinc-600">Day {d.day}</span>
+              {d.count > 0 ? (
+                <span className="tabular-nums font-medium">
+                  €{Math.round(d.cost)}
+                </span>
+              ) : (
+                <Skeleton className="h-4 w-12" />
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
