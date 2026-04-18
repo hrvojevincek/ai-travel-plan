@@ -50,7 +50,7 @@ export async function geocodeOne(
   try {
     const res = await fetcher(url.toString(), { signal: controller.signal });
     if (!res.ok) {
-      console.warn(`[geocode] http ${res.status} for query="${query}"`);
+      console.warn(`[geocode] http=${res.status} queryLen=${query.length}`);
       return null;
     }
     const data = (await res.json()) as GeocodeApiResponse;
@@ -61,15 +61,17 @@ export async function geocodeOne(
     if (data.status === "ZERO_RESULTS") return null;
     // OVER_QUERY_LIMIT, REQUEST_DENIED, INVALID_REQUEST, UNKNOWN_ERROR
     console.warn(
-      `[geocode] status=${data.status} for query="${query}" msg=${data.error_message ?? "-"}`
+      `[geocode] status=${data.status} queryLen=${query.length} msg=${data.error_message ?? "-"}`
     );
     return null;
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
-      console.warn(`[geocode] timeout (${TIMEOUT_MS}ms) for query="${query}"`);
+      console.warn(
+        `[geocode] timeout (${TIMEOUT_MS}ms) queryLen=${query.length}`
+      );
     } else {
       console.warn(
-        `[geocode] fetch failed for query="${query}":`,
+        `[geocode] fetch failed queryLen=${query.length}:`,
         e instanceof Error ? e.message : e
       );
     }

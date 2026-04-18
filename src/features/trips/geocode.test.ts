@@ -86,7 +86,7 @@ describe("geocodeOne", () => {
 
       await expect(pending).resolves.toBeNull();
       expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("timeout")
+        expect.stringMatching(/timeout.*queryLen=\d+/)
       );
     } finally {
       vi.useRealTimers();
