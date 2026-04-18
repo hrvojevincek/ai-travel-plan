@@ -31,6 +31,11 @@ export async function createTrip(
           : null,
       imageUrl: input.imageUrl ?? null,
       imageAttribution: input.imageAttribution ?? null,
+      destinationLat:
+        input.destinationLat != null ? input.destinationLat.toFixed(6) : null,
+      destinationLng:
+        input.destinationLng != null ? input.destinationLng.toFixed(6) : null,
+      destinationPlaceId: input.destinationPlaceId ?? null,
     });
 
     for (const d of input.days) {
@@ -53,6 +58,8 @@ export async function createTrip(
           address: a.address ?? null,
           estimatedCost:
             a.estimatedCost != null ? a.estimatedCost.toFixed(2) : null,
+          latitude: a.latitude != null ? a.latitude.toFixed(6) : null,
+          longitude: a.longitude != null ? a.longitude.toFixed(6) : null,
           orderIndex: a.orderIndex,
         }))
       );
@@ -123,6 +130,11 @@ export async function updateActivity(
   if (patch.estimatedCost !== undefined)
     update.estimatedCost =
       patch.estimatedCost != null ? patch.estimatedCost.toFixed(2) : null;
+  if (patch.latitude !== undefined)
+    update.latitude = patch.latitude != null ? patch.latitude.toFixed(6) : null;
+  if (patch.longitude !== undefined)
+    update.longitude =
+      patch.longitude != null ? patch.longitude.toFixed(6) : null;
   if (patch.orderIndex !== undefined) update.orderIndex = patch.orderIndex;
 
   if (Object.keys(update).length === 0) return;

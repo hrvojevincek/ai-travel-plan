@@ -145,6 +145,63 @@ describe("trip data layer", () => {
     });
   });
 
+  describe("lat/lng persistence", () => {
+    it("round-trips destination coords + place_id on the trip row", async () => {
+      const { id } = await createTrip(
+        db,
+        makeInput({
+          destinationLat: 38.7223,
+          destinationLng: -9.1393,
+          destinationPlaceId: "ChIJ-lisbon",
+        }),
+        "u1"
+      );
+
+      const got = await getTrip(db, id);
+      expect(Number(got?.destinationLat)).toBeCloseTo(38.7223, 4);
+      expect(Number(got?.destinationLng)).toBeCloseTo(-9.1393, 4);
+      expect(got?.destinationPlaceId).toBe("ChIJ-lisbon");
+    });
+
+    it("round-trips activity lat/lng when set", async () => {
+      const { id } = await createTrip(
+        db,
+        makeInput({
+          days: [
+            {
+              dayNumber: 1,
+              activities: [
+                {
+                  name: "Tram 28",
+                  type: "sightseeing",
+                  orderIndex: 0,
+                  latitude: 38.7123,
+                  longitude: -9.1394,
+                },
+              ],
+            },
+          ],
+        }),
+        "u1"
+      );
+
+      const got = await getTrip(db, id);
+      const a = got?.days[0].activities[0];
+      expect(Number(a?.latitude)).toBeCloseTo(38.7123, 4);
+      expect(Number(a?.longitude)).toBeCloseTo(-9.1394, 4);
+    });
+
+    it("leaves lat/lng as null when not provided", async () => {
+      const { id } = await createTrip(db, makeInput(), "u1");
+      const got = await getTrip(db, id);
+      expect(got?.destinationLat).toBeNull();
+      expect(got?.destinationLng).toBeNull();
+      expect(got?.destinationPlaceId).toBeNull();
+      expect(got?.days[0].activities[0].latitude).toBeNull();
+      expect(got?.days[0].activities[0].longitude).toBeNull();
+    });
+  });
+
   describe("getUserTrips", () => {
     it("returns only the requested user's trips", async () => {
       await createTrip(db, makeInput({ destination: "Lisbon" }), "u1");
