@@ -8,6 +8,7 @@ import {
   deleteTrip,
   deleteTripForUser,
   getTrip,
+  getUserTripSummaries,
   getUserTrips,
   updateActivity,
 } from "./data";
@@ -155,6 +156,24 @@ describe("trip data layer", () => {
 
       expect(u1.map((t) => t.destination).sort()).toEqual(["Lisbon", "Porto"]);
       expect(u2.map((t) => t.destination)).toEqual(["Madrid"]);
+    });
+  });
+
+  describe("getUserTripSummaries", () => {
+    it("includes a day count for each trip", async () => {
+      await createTrip(db, makeInput({ destination: "Lisbon" }), "u1");
+
+      const [summary] = await getUserTripSummaries(db, "u1");
+      expect(summary.destination).toBe("Lisbon");
+      expect(summary.dayCount).toBe(2);
+    });
+
+    it("returns only the requested user's trips", async () => {
+      await createTrip(db, makeInput({ destination: "Lisbon" }), "u1");
+      await createTrip(db, makeInput({ destination: "Madrid" }), "u2");
+
+      const u1 = await getUserTripSummaries(db, "u1");
+      expect(u1.map((t) => t.destination)).toEqual(["Lisbon"]);
     });
   });
 

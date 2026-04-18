@@ -93,6 +93,20 @@ export async function getUserTrips(
   });
 }
 
+export type UserTripSummary = TripRow & { dayCount: number };
+
+export async function getUserTripSummaries(
+  db: AppDb,
+  userId: string
+): Promise<UserTripSummary[]> {
+  const rows = await db.query.trip.findMany({
+    where: eq(trip.userId, userId),
+    orderBy: (t, { desc }) => [desc(t.createdAt)],
+    with: { days: { columns: { id: true } } },
+  });
+  return rows.map(({ days, ...t }) => ({ ...t, dayCount: days.length }));
+}
+
 export async function updateActivity(
   db: AppDb,
   activityId: string,
