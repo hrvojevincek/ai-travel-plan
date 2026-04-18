@@ -136,6 +136,32 @@ describe("checkTripGenerateLimit — with mocked Upstash", () => {
     expect(result.limit).toBe(30);
   });
 
+  it("fails open when the limiter throws (Upstash/network outage)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.doMock("@upstash/ratelimit", () => {
+      class Ratelimit {
+        constructor(public readonly opts: { prefix: string }) {}
+        async limit(_id: string): Promise<never> {
+          throw new Error("ECONNREFUSED");
+        }
+        static slidingWindow() {
+          return "sliding";
+        }
+      }
+      return { Ratelimit };
+    });
+
+    const { checkTripGenerateLimit } = await import("./rate-limit");
+    const result = await checkTripGenerateLimit("203.0.113.5");
+    expect(result.success).toBe(true);
+    expect(result.scope).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("passing through"),
+      expect.objectContaining({ message: "ECONNREFUSED" })
+    );
+    errorSpy.mockRestore();
+  });
+
   it("returns success=true with the tighter remaining when both pass", async () => {
     vi.doMock("@upstash/ratelimit", () => {
       class Ratelimit {

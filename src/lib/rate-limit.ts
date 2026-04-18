@@ -69,10 +69,22 @@ export async function checkTripGenerateLimit(
   const limiters = getLimiters();
   if (!limiters) return PASS_THROUGH;
 
-  const [minute, day] = await Promise.all([
-    limiters.minute.limit(identifier),
-    limiters.day.limit(identifier),
-  ]);
+  let minute: Awaited<ReturnType<Ratelimit["limit"]>>;
+  let day: Awaited<ReturnType<Ratelimit["limit"]>>;
+  try {
+    [minute, day] = await Promise.all([
+      limiters.minute.limit(identifier),
+      limiters.day.limit(identifier),
+    ]);
+  } catch (e) {
+    // Fail-open: Upstash / network outage shouldn't take the endpoint down.
+    // Brief windows of "no limiting" are acceptable vs. a hard 500.
+    console.error(
+      "[rate-limit] limiter call failed, passing through:",
+      e instanceof Error ? { message: e.message } : e
+    );
+    return PASS_THROUGH;
+  }
 
   if (!minute.success) {
     return {
