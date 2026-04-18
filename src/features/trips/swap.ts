@@ -23,25 +23,53 @@ export async function swapActivity(
   db: AppDb,
   tripId: string,
   activityId: string,
-  opts: SwapActivityOpts = {},
+  opts: SwapActivityOpts = {}
 ): Promise<SwapActivityOutputT> {
   const trip = await getTrip(db, tripId);
   if (!trip) throw new Error(`trip ${tripId} not found`);
 
-  const day = trip.days.find((d) => d.activities.some((a) => a.id === activityId));
-  if (!day) throw new Error(`activity ${activityId} not found in trip ${tripId}`);
+  const day = trip.days.find((d) =>
+    d.activities.some((a) => a.id === activityId)
+  );
+  if (!day)
+    throw new Error(`activity ${activityId} not found in trip ${tripId}`);
 
   const target = day.activities.find((a) => a.id === activityId);
-  if (!target) throw new Error(`activity ${activityId} not found in trip ${tripId}`);
+  if (!target)
+    throw new Error(`activity ${activityId} not found in trip ${tripId}`);
 
   const siblings = day.activities.filter((a) => a.id !== activityId);
 
   const schema = SwapActivityOutput.extend({ type: z.literal(target.type) });
-  const prompt = buildPrompt({ trip, day, target, siblings });
+  const forbiddenNames = new Set<string>(
+    [target.name, ...siblings.map((s) => s.name)].map(normalizeName)
+  );
 
   const model = opts.model ?? openai("gpt-4o-mini");
-  const { object } = await generateObject({ model, schema, prompt });
-  return object;
+
+  let duplicate: SwapActivityOutputT | null = null;
+  for (let attempt = 1; attempt <= MAX_SWAP_ATTEMPTS; attempt++) {
+    const prompt = buildPrompt({
+      trip,
+      day,
+      target,
+      siblings,
+      previousDuplicateName: duplicate?.name ?? null,
+    });
+    const { object } = await generateObject({ model, schema, prompt });
+    if (!forbiddenNames.has(normalizeName(object.name))) return object;
+    duplicate = object;
+  }
+
+  throw new Error(
+    `swapActivity: model returned duplicate activity "${duplicate?.name}" after ${MAX_SWAP_ATTEMPTS} attempts`
+  );
+}
+
+const MAX_SWAP_ATTEMPTS = 2;
+
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase();
 }
 
 interface PromptArgs {
@@ -54,9 +82,16 @@ interface PromptArgs {
     orderIndex: number;
   };
   siblings: Array<{ name: string; type: string; orderIndex: number }>;
+  previousDuplicateName: string | null;
 }
 
-function buildPrompt({ trip, day, target, siblings }: PromptArgs): string {
+function buildPrompt({
+  trip,
+  day,
+  target,
+  siblings,
+  previousDuplicateName,
+}: PromptArgs): string {
   const siblingList = siblings.length
     ? siblings
         .slice()
@@ -64,6 +99,10 @@ function buildPrompt({ trip, day, target, siblings }: PromptArgs): string {
         .map((s) => `- ${s.name} (${s.type})`)
         .join("\n")
     : "(none)";
+
+  const retryNote = previousDuplicateName
+    ? `Your previous suggestion "${previousDuplicateName}" duplicates an existing activity. Pick a completely different one.`
+    : "";
 
   return [
     `The user is replacing a single activity in their ${trip.destination} itinerary.`,
@@ -76,6 +115,7 @@ function buildPrompt({ trip, day, target, siblings }: PromptArgs): string {
     target.description ? `- Description: ${target.description}` : "",
     `- Type: ${target.type}`,
     "",
+    retryNote,
     "Output requirements:",
     `- type MUST be "${target.type}" (preserve the slot).`,
     "- Name, description, address, duration, estimatedCost for the new activity.",
