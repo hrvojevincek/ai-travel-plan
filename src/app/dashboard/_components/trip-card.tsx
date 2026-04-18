@@ -34,12 +34,18 @@ export function TripCard({ trip }: { trip: TripCardData }) {
 
   const onConfirm = () => {
     startDelete(async () => {
-      const res = await deleteTripAction(trip.id);
-      if (res.ok) {
-        toast.success(`Deleted ${trip.destination}`);
-        return;
+      try {
+        const res = await deleteTripAction(trip.id);
+        if (res.ok) {
+          toast.success(`Deleted ${trip.destination}`);
+          return;
+        }
+        toast.error(res.message ?? "Couldn't delete trip. Please try again.");
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "Couldn't delete trip. Please try again."
+        );
       }
-      toast.error(res.message ?? "Couldn't delete trip. Please try again.");
     });
   };
 
@@ -126,6 +132,7 @@ export function TripCard({ trip }: { trip: TripCardData }) {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={onConfirm}
+                disabled={isDeleting}
                 className="bg-destructive text-white hover:bg-destructive/90"
               >
                 Delete
