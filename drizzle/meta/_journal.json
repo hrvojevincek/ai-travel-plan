@@ -15,6 +15,13 @@
       "when": 1776524628157,
       "tag": "0001_amazing_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776553194356,
+      "tag": "0002_demonic_ogun",
+      "breakpoints": true
     }
   ]
 }
