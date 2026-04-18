@@ -106,6 +106,12 @@ export const trip = pgTable(
     totalEstimatedCost: numeric("total_estimated_cost", { precision: 10, scale: 2 }),
     imageUrl: text("image_url"),
     imageAttribution: text("image_attribution"),
+    // Destination coords captured from Places Autocomplete at search time.
+    // Used to center the map before activity pins load, and later to share
+    // / link out. Nullable for trips saved before this feature landed.
+    destinationLat: numeric("destination_lat", { precision: 9, scale: 6 }),
+    destinationLng: numeric("destination_lng", { precision: 9, scale: 6 }),
+    destinationPlaceId: text("destination_place_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -144,6 +150,11 @@ export const activity = pgTable(
     durationMinutes: integer("duration_minutes"),
     address: text("address"),
     estimatedCost: numeric("estimated_cost", { precision: 10, scale: 2 }),
+    // Map pin coords. Geocoded server-side in saveTrip (KRE-29). Nullable
+    // because the geocoder can legitimately return no result for a bad
+    // address — we still persist the activity, it just renders without a pin.
+    latitude: numeric("latitude", { precision: 9, scale: 6 }),
+    longitude: numeric("longitude", { precision: 9, scale: 6 }),
     orderIndex: integer("order_index").notNull(),
   },
   (table) => [
