@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type UseFormReturn, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
+import { safeInternalRedirect } from "./safe-redirect";
 import {
   type AuthFormValues,
   type AuthKind,
@@ -37,7 +38,7 @@ export function useAuthForm<K extends AuthKind>(
   opts: UseAuthFormOpts = {},
 ): UseAuthFormReturn<K> {
   const router = useRouter();
-  const redirectTo = opts.redirectTo ?? "/";
+  const redirectTo = safeInternalRedirect(opts.redirectTo);
 
   const schema = kind === "sign-in" ? SignInSchema : SignUpSchema;
   const defaultValues =
