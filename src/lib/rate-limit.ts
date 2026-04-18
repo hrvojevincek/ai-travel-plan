@@ -127,5 +127,7 @@ export function clientIp(headers: Headers): string {
     const first = xff.split(",")[0]?.trim();
     if (first) return first;
   }
-  return headers.get("x-real-ip") ?? "unknown";
+  const real = headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  return "unknown";
 }

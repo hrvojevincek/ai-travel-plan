@@ -27,6 +27,19 @@ describe("clientIp", () => {
     const { clientIp } = await import("./rate-limit");
     expect(clientIp(new Headers())).toBe("unknown");
   });
+
+  it("returns 'unknown' when x-real-ip is empty or whitespace-only", async () => {
+    const { clientIp } = await import("./rate-limit");
+    expect(clientIp(new Headers({ "x-real-ip": "" }))).toBe("unknown");
+    expect(clientIp(new Headers({ "x-real-ip": "   " }))).toBe("unknown");
+  });
+
+  it("trims whitespace around x-real-ip", async () => {
+    const { clientIp } = await import("./rate-limit");
+    expect(clientIp(new Headers({ "x-real-ip": "  198.51.100.9  " }))).toBe(
+      "198.51.100.9"
+    );
+  });
 });
 
 describe("checkTripGenerateLimit — no Upstash creds", () => {
