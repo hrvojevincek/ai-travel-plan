@@ -24,7 +24,6 @@ interface TripViewProps {
   trip: PartialTrip | undefined;
   expectedDays: number;
   destination: string;
-  isStreaming?: boolean;
   onSave?: () => void;
   canSave?: boolean;
   saveLabel?: string;
@@ -37,7 +36,6 @@ export function TripView({
   trip,
   expectedDays,
   destination,
-  isStreaming,
   onSave,
   canSave,
   saveLabel = "Save trip",
@@ -68,7 +66,6 @@ export function TripView({
                 key={dayNum}
                 dayNumber={dayNum}
                 activities={day?.activities}
-                isStreaming={isStreaming}
                 onSwapActivity={onSwapActivity}
               />
             );
@@ -83,7 +80,6 @@ export function TripView({
           totalCost={trip?.totalEstimatedCost}
           duration={expectedDays}
           days={days}
-          isStreaming={isStreaming}
           imageUrl={imageUrl}
           imageAttribution={imageAttribution}
         />
@@ -140,12 +136,10 @@ function ActivitiesHeader({
 function DaySection({
   dayNumber,
   activities,
-  isStreaming,
   onSwapActivity,
 }: {
   dayNumber: number;
   activities: (PartialActivity | undefined)[] | undefined;
-  isStreaming?: boolean;
   onSwapActivity?: (dayNumber: number, activityIndex: number) => void;
 }) {
   const hasContent = Array.isArray(activities) && activities.length > 0;
@@ -170,7 +164,7 @@ function DaySection({
         </ol>
       ) : (
         <div className="space-y-4">
-          {SKELETON_KEYS.slice(0, isStreaming ? 3 : 7).map((k) => (
+          {SKELETON_KEYS.map((k) => (
             <ActivitySkeleton key={`sk-${dayNumber}-${k}`} />
           ))}
         </div>
@@ -269,7 +263,6 @@ function SummaryPanel({
   totalCost,
   duration,
   days,
-  isStreaming,
   imageUrl,
   imageAttribution,
 }: {
@@ -278,7 +271,6 @@ function SummaryPanel({
   totalCost: number | undefined;
   duration: number;
   days: (PartialDay | undefined)[];
-  isStreaming?: boolean;
   imageUrl?: string | null;
   imageAttribution?: string | null;
 }) {
@@ -328,15 +320,6 @@ function SummaryPanel({
           >
             <Sparkles className="h-3.5 w-3.5 text-primary" />
             {duration}-day itinerary
-            {isStreaming && (
-              <span className="ml-1 inline-flex items-center gap-1 text-primary">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                </span>
-                Generating
-              </span>
-            )}
           </div>
           <h2 className="mt-2 text-balance text-3xl font-extrabold capitalize sm:text-4xl">
             {destination}

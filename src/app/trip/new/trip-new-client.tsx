@@ -1,16 +1,44 @@
 "use client";
 
-import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { saveTrip } from "@/features/trips/actions";
-import { GeneratedTrip } from "@/features/trips/generate";
+import { GeneratedTrip, type GeneratedTripT } from "@/features/trips/generate";
 import { mockTrip } from "@/features/trips/mock";
 import { TripView } from "@/features/trips/view";
+
+type GenState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; trip: GeneratedTripT }
+  | { status: "error"; message: string };
+
+async function fetchGeneratedTrip(input: {
+  destination: string;
+  duration: number;
+  preferences?: string;
+}): Promise<GeneratedTripT> {
+  const res = await fetch("/api/trips/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string;
+  } & Record<string, unknown>;
+  if (!res.ok) {
+    throw new Error(body.error ?? "Couldn't generate your trip.");
+  }
+  const parsed = GeneratedTrip.safeParse(body);
+  if (!parsed.success) {
+    throw new Error("Trip came back in an unexpected format.");
+  }
+  return parsed.data;
+}
 
 export function TripNewClient() {
   const params = useSearchParams();
@@ -26,34 +54,42 @@ export function TripNewClient() {
   const [isSaving, startSaving] = useTransition();
   const autoSaveFired = useRef(false);
 
-  const { object, submit, isLoading, error, stop } = useObject({
-    api: "/api/trips/generate",
-    schema: GeneratedTrip,
-    onError: (err) => {
-      toast.error(err.message || "Couldn't generate your trip.");
-    },
-  });
+  const [state, setState] = useState<GenState>(() =>
+    mock
+      ? { status: "ready", trip: mockTrip as GeneratedTripT }
+      : { status: "idle" }
+  );
 
   const didSubmit = useRef(false);
+  const generate = useCallback(async () => {
+    if (!destination) return;
+    setState({ status: "loading" });
+    try {
+      const trip = await fetchGeneratedTrip({
+        destination,
+        duration,
+        preferences,
+      });
+      setState({ status: "ready", trip });
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Couldn't generate your trip.";
+      setState({ status: "error", message });
+      toast.error(message);
+    }
+  }, [destination, duration, preferences]);
+
   useEffect(() => {
     if (mock || didSubmit.current || !destination) return;
     didSubmit.current = true;
-    submit({ destination, duration, preferences });
-  }, [mock, destination, duration, preferences, submit]);
+    void generate();
+  }, [mock, destination, generate]);
 
-  const toastedError = useRef<string | null>(null);
-  useEffect(() => {
-    if (!error) return;
-    if (toastedError.current === error.message) return;
-    toastedError.current = error.message;
-    toast.error(error.message);
-  }, [error]);
-
-  const trip = mock ? mockTrip : object;
-  const canSave = !isLoading && !isSaving && !!trip?.days?.length;
+  const trip = state.status === "ready" ? state.trip : undefined;
+  const canSave = state.status === "ready" && !isSaving;
 
   const runSave = useCallback(
-    (data: unknown) => {
+    (data: GeneratedTripT) => {
       startSaving(async () => {
         const res = await saveTrip(data);
         if (res.ok) {
@@ -79,60 +115,44 @@ export function TripNewClient() {
   );
 
   const handleSave = () => {
-    if (!trip || isLoading || isSaving) return;
-    const parsed = GeneratedTrip.safeParse(trip);
-    if (!parsed.success) {
-      toast.error("Trip isn't ready yet. Wait for generation to finish.");
-      return;
-    }
-    runSave(parsed.data);
+    if (state.status !== "ready" || isSaving) return;
+    runSave(state.trip);
   };
 
   // After returning from login, auto-retry save once generation is ready.
   const shouldAutoSave = params.get("saveOnLoad") === "1";
   useEffect(() => {
-    if (!shouldAutoSave || autoSaveFired.current || !canSave) return;
-    const parsed = GeneratedTrip.safeParse(trip);
-    if (!parsed.success) return;
+    if (!shouldAutoSave || autoSaveFired.current) return;
+    if (state.status !== "ready") return;
     autoSaveFired.current = true;
-    runSave(parsed.data);
-  }, [shouldAutoSave, canSave, trip, runSave]);
+    runSave(state.trip);
+  }, [shouldAutoSave, state, runSave]);
 
   if (!destination) {
     return <InvalidState />;
   }
 
-  if (error) {
+  if (state.status === "error") {
     return (
       <ErrorState
-        message={error.message}
+        message={state.message}
         onRetry={() => {
           didSubmit.current = true;
-          submit({ destination, duration, preferences });
+          void generate();
         }}
       />
     );
   }
 
   return (
-    <>
-      <TripView
-        trip={trip}
-        expectedDays={duration}
-        destination={destination}
-        isStreaming={isLoading && !mock}
-        canSave={canSave}
-        saveLabel={isSaving ? "Saving…" : "Save trip"}
-        onSave={handleSave}
-      />
-      {isLoading && !mock && (
-        <div className="fixed right-4 bottom-4 z-30">
-          <Button variant="outline" size="sm" onClick={stop}>
-            Stop generating
-          </Button>
-        </div>
-      )}
-    </>
+    <TripView
+      trip={trip}
+      expectedDays={duration}
+      destination={destination}
+      canSave={canSave}
+      saveLabel={isSaving ? "Saving…" : "Save trip"}
+      onSave={handleSave}
+    />
   );
 }
 
