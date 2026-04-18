@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuthForm } from "@/features/auth";
+import { useAuthForm } from "@/features/auth/client";
 
 export function LoginForm() {
   const { form, submit, isPending } = useAuthForm("sign-in");
