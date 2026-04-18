@@ -20,8 +20,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuthForm } from "@/features/auth/client";
 
-export function LoginForm() {
-  const { form, submit, isPending } = useAuthForm("sign-in");
+export function LoginForm({ redirectTo }: { redirectTo?: string } = {}) {
+  const { form, submit, isPending } = useAuthForm("sign-in", { redirectTo });
 
   return (
     <div className="flex flex-col gap-6">

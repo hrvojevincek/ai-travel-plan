@@ -3,16 +3,18 @@
 import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { RotateCw } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { saveTrip } from "@/features/trips/actions";
 import { GeneratedTrip } from "@/features/trips/generate";
 import { mockTrip } from "@/features/trips/mock";
 import { TripView } from "@/features/trips/view";
 
 export function TripNewClient() {
   const params = useSearchParams();
+  const router = useRouter();
   const destination = params.get("destination") ?? "";
   const duration = Math.max(
     1,
@@ -20,6 +22,9 @@ export function TripNewClient() {
   );
   const preferences = params.get("preferences") ?? undefined;
   const mock = params.get("mock") === "1";
+
+  const [isSaving, startSaving] = useTransition();
+  const autoSaveFired = useRef(false);
 
   const { object, submit, isLoading, error, stop } = useObject({
     api: "/api/trips/generate",
@@ -34,6 +39,53 @@ export function TripNewClient() {
   }, [mock, destination, duration, preferences, submit]);
 
   const trip = mock ? mockTrip : object;
+  const canSave = !isLoading && !isSaving && !!trip?.days?.length;
+
+  const runSave = useCallback(
+    (data: unknown) => {
+      startSaving(async () => {
+        const res = await saveTrip(data);
+        if (res.ok) {
+          router.push(`/trip/${res.id}`);
+          return;
+        }
+        if (res.code === "UNAUTH") {
+          toast.info("Sign in to save your trip.");
+          const qs = new URLSearchParams({
+            destination,
+            duration: String(duration),
+            ...(preferences ? { preferences } : {}),
+            saveOnLoad: "1",
+          });
+          const returnTo = `/trip/new?${qs.toString()}`;
+          router.push(`/login?redirectTo=${encodeURIComponent(returnTo)}`);
+          return;
+        }
+        toast.error(res.message ?? "Couldn't save trip. Please try again.");
+      });
+    },
+    [destination, duration, preferences, router]
+  );
+
+  const handleSave = () => {
+    if (!trip || isLoading || isSaving) return;
+    const parsed = GeneratedTrip.safeParse(trip);
+    if (!parsed.success) {
+      toast.error("Trip isn't ready yet. Wait for generation to finish.");
+      return;
+    }
+    runSave(parsed.data);
+  };
+
+  // After returning from login, auto-retry save once generation is ready.
+  const shouldAutoSave = params.get("saveOnLoad") === "1";
+  useEffect(() => {
+    if (!shouldAutoSave || autoSaveFired.current || !canSave) return;
+    const parsed = GeneratedTrip.safeParse(trip);
+    if (!parsed.success) return;
+    autoSaveFired.current = true;
+    runSave(parsed.data);
+  }, [shouldAutoSave, canSave, trip, runSave]);
 
   if (!destination) {
     return <InvalidState />;
@@ -58,12 +110,12 @@ export function TripNewClient() {
         expectedDays={duration}
         destination={destination}
         isStreaming={isLoading && !mock}
-        canSave={!isLoading && !!trip?.days?.length}
-        saveLabel="Save trip"
-        onSave={() => toast.info("Save coming in the next step.")}
+        canSave={canSave}
+        saveLabel={isSaving ? "Saving…" : "Save trip"}
+        onSave={handleSave}
       />
       {isLoading && !mock && (
-        <div className="fixed bottom-4 right-4 z-30">
+        <div className="fixed right-4 bottom-4 z-30">
           <Button variant="outline" size="sm" onClick={stop}>
             Stop generating
           </Button>

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Hind } from "next/font/google";
 import "./globals.css";
-import QueryProvider from "@/components/query-provider";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "sonner";
+import QueryProvider from "@/components/query-provider";
 
 const hind = Hind({
   variable: "--font-hind",
@@ -23,12 +23,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${hind.variable} antialiased`}
-      >
+      <body className={`${hind.variable} antialiased`}>
         <QueryProvider>
           <NuqsAdapter>
-              {children} <Toaster />
+            {children} <Toaster />
           </NuqsAdapter>
         </QueryProvider>
       </body>

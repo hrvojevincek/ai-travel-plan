@@ -15,7 +15,7 @@ export type TripWithDays = TripRow & {
 export async function createTrip(
   db: AppDb,
   input: CreateTripInputT,
-  userId: string,
+  userId: string
 ): Promise<{ id: string }> {
   const tripId = randomUUID();
 
@@ -26,7 +26,9 @@ export async function createTrip(
       destination: input.destination,
       summary: input.summary ?? null,
       totalEstimatedCost:
-        input.totalEstimatedCost != null ? input.totalEstimatedCost.toFixed(2) : null,
+        input.totalEstimatedCost != null
+          ? input.totalEstimatedCost.toFixed(2)
+          : null,
       imageUrl: input.imageUrl ?? null,
       imageAttribution: input.imageAttribution ?? null,
     });
@@ -49,9 +51,10 @@ export async function createTrip(
           type: a.type,
           durationMinutes: a.durationMinutes ?? null,
           address: a.address ?? null,
-          estimatedCost: a.estimatedCost != null ? a.estimatedCost.toFixed(2) : null,
+          estimatedCost:
+            a.estimatedCost != null ? a.estimatedCost.toFixed(2) : null,
           orderIndex: a.orderIndex,
-        })),
+        }))
       );
     }
   });
@@ -59,7 +62,10 @@ export async function createTrip(
   return { id: tripId };
 }
 
-export async function getTrip(db: AppDb, id: string): Promise<TripWithDays | null> {
+export async function getTrip(
+  db: AppDb,
+  id: string
+): Promise<TripWithDays | null> {
   const result = await db.query.trip.findFirst({
     where: eq(trip.id, id),
     with: {
@@ -77,7 +83,10 @@ export async function getTrip(db: AppDb, id: string): Promise<TripWithDays | nul
   return result ?? null;
 }
 
-export async function getUserTrips(db: AppDb, userId: string): Promise<TripRow[]> {
+export async function getUserTrips(
+  db: AppDb,
+  userId: string
+): Promise<TripRow[]> {
   return db.query.trip.findMany({
     where: eq(trip.userId, userId),
     orderBy: (t, { desc }) => [desc(t.createdAt)],
@@ -87,11 +96,12 @@ export async function getUserTrips(db: AppDb, userId: string): Promise<TripRow[]
 export async function updateActivity(
   db: AppDb,
   activityId: string,
-  patch: UpdateActivityInputT,
+  patch: UpdateActivityInputT
 ): Promise<void> {
   const update: Partial<typeof activity.$inferInsert> = {};
   if (patch.name !== undefined) update.name = patch.name;
-  if (patch.description !== undefined) update.description = patch.description ?? null;
+  if (patch.description !== undefined)
+    update.description = patch.description ?? null;
   if (patch.type !== undefined) update.type = patch.type;
   if (patch.durationMinutes !== undefined)
     update.durationMinutes = patch.durationMinutes ?? null;
@@ -113,7 +123,7 @@ export async function deleteTrip(db: AppDb, id: string): Promise<void> {
 export async function deleteTripForUser(
   db: AppDb,
   id: string,
-  userId: string,
+  userId: string
 ): Promise<boolean> {
   const result = await db
     .delete(trip)

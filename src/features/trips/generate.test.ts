@@ -16,13 +16,62 @@ function makeFixture(days = 2): GeneratedTripT {
     days: Array.from({ length: days }, (_, i) => ({
       dayNumber: i + 1,
       activities: [
-        { name: "bfast", description: "x", type: "breakfast", durationMinutes: 30, address: "A", estimatedCost: 10 },
-        { name: "a1", description: "x", type: "activity", durationMinutes: 90, address: "A", estimatedCost: 15 },
-        { name: "a2", description: "x", type: "activity", durationMinutes: 60, address: "A", estimatedCost: 0 },
-        { name: "lunch", description: "x", type: "lunch", durationMinutes: 45, address: "A", estimatedCost: 20 },
-        { name: "a3", description: "x", type: "activity", durationMinutes: 75, address: "A", estimatedCost: 5 },
-        { name: "a4", description: "x", type: "activity", durationMinutes: 60, address: "A", estimatedCost: 0 },
-        { name: "dinner", description: "x", type: "dinner", durationMinutes: 60, address: "A", estimatedCost: 30 },
+        {
+          name: "bfast",
+          description: "x",
+          type: "breakfast",
+          durationMinutes: 30,
+          address: "A",
+          estimatedCost: 10,
+        },
+        {
+          name: "a1",
+          description: "x",
+          type: "activity",
+          durationMinutes: 90,
+          address: "A",
+          estimatedCost: 15,
+        },
+        {
+          name: "a2",
+          description: "x",
+          type: "activity",
+          durationMinutes: 60,
+          address: "A",
+          estimatedCost: 0,
+        },
+        {
+          name: "lunch",
+          description: "x",
+          type: "lunch",
+          durationMinutes: 45,
+          address: "A",
+          estimatedCost: 20,
+        },
+        {
+          name: "a3",
+          description: "x",
+          type: "activity",
+          durationMinutes: 75,
+          address: "A",
+          estimatedCost: 5,
+        },
+        {
+          name: "a4",
+          description: "x",
+          type: "activity",
+          durationMinutes: 60,
+          address: "A",
+          estimatedCost: 0,
+        },
+        {
+          name: "dinner",
+          description: "x",
+          type: "dinner",
+          durationMinutes: 60,
+          address: "A",
+          estimatedCost: 30,
+        },
       ],
     })),
   };
@@ -53,7 +102,7 @@ describe("generateTrip", () => {
         destination: "Lisbon",
         duration: 1,
         model: mockObjectModel(bad),
-      }),
+      })
     ).rejects.toThrow();
   });
 
@@ -88,7 +137,7 @@ describe("generateTrip", () => {
     });
 
     await expect(
-      generateTrip({ destination: "Lisbon", duration: 1, model: failing }),
+      generateTrip({ destination: "Lisbon", duration: 1, model: failing })
     ).rejects.toThrow(/upstream_timeout/);
   });
 });
@@ -97,7 +146,15 @@ describe("toCreateTripInput", () => {
   it("maps meals to 'food' and activities to 'other'", () => {
     const mapped = toCreateTripInput(makeFixture(1));
     const types = mapped.days[0].activities.map((a) => a.type);
-    expect(types).toEqual(["food", "other", "other", "food", "other", "other", "food"]);
+    expect(types).toEqual([
+      "food",
+      "other",
+      "other",
+      "food",
+      "other",
+      "other",
+      "food",
+    ]);
   });
 
   it("derives orderIndex from array position", () => {

@@ -44,7 +44,9 @@ export interface GenerateTripOpts {
   model?: LanguageModel;
 }
 
-export async function generateTrip(opts: GenerateTripOpts): Promise<GeneratedTripT> {
+export async function generateTrip(
+  opts: GenerateTripOpts
+): Promise<GeneratedTripT> {
   const model = opts.model ?? openai("gpt-4o-mini");
   const { object } = await generateObject({
     model,
@@ -80,7 +82,11 @@ function mapActivityType(t: GeneratedActivityTypeT): ActivityTypeValue {
   return t === "activity" ? "other" : "food";
 }
 
-function buildPrompt({ destination, duration, preferences }: GenerateTripOpts): string {
+function buildPrompt({
+  destination,
+  duration,
+  preferences,
+}: GenerateTripOpts): string {
   const prefLine = preferences?.trim()
     ? `Traveler preferences (treat as hard constraints when possible): ${preferences}`
     : "No special preferences — default to broadly appealing choices.";
