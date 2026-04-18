@@ -11,6 +11,9 @@ export const ActivityTypeEnum = z.enum([
 ]);
 export type ActivityTypeValue = z.infer<typeof ActivityTypeEnum>;
 
+const LatitudeSchema = z.number().min(-90).max(90);
+const LongitudeSchema = z.number().min(-180).max(180);
+
 export const ActivityInput = z.object({
   name: z.string().min(1),
   description: z.string().nullish(),
@@ -18,6 +21,8 @@ export const ActivityInput = z.object({
   durationMinutes: z.number().int().positive().nullish(),
   address: z.string().nullish(),
   estimatedCost: z.number().nonnegative().nullish(),
+  latitude: LatitudeSchema.nullish(),
+  longitude: LongitudeSchema.nullish(),
   orderIndex: z.number().int().min(0),
 });
 export type ActivityInputT = z.infer<typeof ActivityInput>;
@@ -34,6 +39,9 @@ export const CreateTripInput = z.object({
   totalEstimatedCost: z.number().nonnegative().nullish(),
   imageUrl: z.string().url().nullish(),
   imageAttribution: z.string().nullish(),
+  destinationLat: LatitudeSchema.nullish(),
+  destinationLng: LongitudeSchema.nullish(),
+  destinationPlaceId: z.string().nullish(),
   days: z.array(DayInput).min(1),
 });
 export type CreateTripInputT = z.infer<typeof CreateTripInput>;
