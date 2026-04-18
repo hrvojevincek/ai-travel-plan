@@ -2,6 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamObject } from "ai";
 import { z } from "zod";
 import { GeneratedTrip } from "@/features/trips/generate";
+import { checkTripGenerateLimit, clientIp } from "@/lib/rate-limit";
 
 // Edge runtime: cheaper cold-starts and better streaming tolerance on Hobby
 // plans (Node serverless capped at 60s total; Edge keeps long streams alive).
@@ -16,10 +17,36 @@ const Body = z.object({
 
 const ACTIVITIES_PER_DAY = 7;
 
-// TODO(KRE-28): Endpoint is intentionally unauthenticated per KRE-16/KRE-17
-// (unauth users can generate; auth is prompted at save time). Add rate limiting
-// before production to cap OpenAI spend from abuse.
+// Endpoint is intentionally unauthenticated per KRE-16/KRE-17 (unauth users can
+// generate; auth is prompted at save time). Rate-limited per-IP via Upstash
+// to cap OpenAI spend — see `lib/rate-limit`.
 export async function POST(req: Request) {
+  const ip = clientIp(req.headers);
+  const rl = await checkTripGenerateLimit(ip);
+  if (!rl.success) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((rl.reset - Date.now()) / 1000)
+    );
+    console.warn(
+      `[trips/generate] rate-limited ip=${ip} scope=${rl.scope} retryAfter=${retryAfterSeconds}s`
+    );
+    const message =
+      rl.scope === "day"
+        ? "You've reached the daily limit. Try again tomorrow."
+        : "Too many requests. Please wait a moment and try again.";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(retryAfterSeconds),
+        "X-RateLimit-Limit": String(rl.limit),
+        "X-RateLimit-Remaining": String(rl.remaining),
+        "X-RateLimit-Reset": String(rl.reset),
+      },
+    });
+  }
+
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) {
