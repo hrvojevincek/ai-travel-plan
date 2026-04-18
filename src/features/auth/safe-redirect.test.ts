@@ -42,7 +42,7 @@ describe("safeInternalRedirect", () => {
 
   it("preserves the caller's original encoding when the decoded form is safe", () => {
     expect(safeInternalRedirect("/trip/%E2%9C%93-check")).toBe(
-      "/trip/%E2%9C%93-check",
+      "/trip/%E2%9C%93-check"
     );
   });
 });

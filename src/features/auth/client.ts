@@ -35,7 +35,7 @@ const SIGN_UP_DEFAULTS: SignUpValues = {
 
 export function useAuthForm<K extends AuthKind>(
   kind: K,
-  opts: UseAuthFormOpts = {},
+  opts: UseAuthFormOpts = {}
 ): UseAuthFormReturn<K> {
   const router = useRouter();
   const redirectTo = safeInternalRedirect(opts.redirectTo);
@@ -64,7 +64,7 @@ export function useAuthForm<K extends AuthKind>(
       const v = values as SignInValues;
       await authClient.signIn.email(
         { email: v.email, password: v.password, callbackURL: redirectTo },
-        onSettled,
+        onSettled
       );
     } else {
       const v = values as SignUpValues;
@@ -75,7 +75,7 @@ export function useAuthForm<K extends AuthKind>(
           password: v.password,
           callbackURL: redirectTo,
         },
-        onSettled,
+        onSettled
       );
     }
   });

@@ -21,7 +21,9 @@ async function seedUser(db: AppDb, id: string, email: string) {
   await db.insert(user).values({ id, name: id, email });
 }
 
-function makeInput(overrides: Partial<CreateTripInputT> = {}): CreateTripInputT {
+function makeInput(
+  overrides: Partial<CreateTripInputT> = {}
+): CreateTripInputT {
   return {
     destination: "Lisbon",
     summary: "three days of sardines",
@@ -32,8 +34,18 @@ function makeInput(overrides: Partial<CreateTripInputT> = {}): CreateTripInputT 
       {
         dayNumber: 1,
         activities: [
-          { name: "Tram 28", type: "sightseeing", orderIndex: 0, estimatedCost: 3 },
-          { name: "Pasteis de Belem", type: "food", orderIndex: 1, estimatedCost: 10 },
+          {
+            name: "Tram 28",
+            type: "sightseeing",
+            orderIndex: 0,
+            estimatedCost: 3,
+          },
+          {
+            name: "Pasteis de Belem",
+            type: "food",
+            orderIndex: 1,
+            estimatedCost: 10,
+          },
         ],
       },
       {
@@ -122,7 +134,7 @@ describe("trip data layer", () => {
             },
           ],
         }),
-        "u1",
+        "u1"
       );
 
       const got = await getTrip(db, id);

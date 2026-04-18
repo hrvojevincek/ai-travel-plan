@@ -28,14 +28,18 @@ vi.mock("sonner", () => ({
   toast: { error: hoisted.toastError },
 }));
 
-import { useAuthForm, type UseAuthFormOpts } from "./client";
+import { type UseAuthFormOpts, useAuthForm } from "./client";
 
 function SignInHarness(props: UseAuthFormOpts = {}) {
   const { form, submit, isPending } = useAuthForm("sign-in", props);
   return (
     <form onSubmit={submit}>
       <input aria-label="email" {...form.register("email")} />
-      <input aria-label="password" type="password" {...form.register("password")} />
+      <input
+        aria-label="password"
+        type="password"
+        {...form.register("password")}
+      />
       <button type="submit" disabled={isPending}>
         Submit
       </button>
@@ -48,7 +52,11 @@ function SignUpHarness(props: UseAuthFormOpts = {}) {
   return (
     <form onSubmit={submit}>
       <input aria-label="email" {...form.register("email")} />
-      <input aria-label="password" type="password" {...form.register("password")} />
+      <input
+        aria-label="password"
+        type="password"
+        {...form.register("password")}
+      />
       <input
         aria-label="confirm"
         type="password"
@@ -118,7 +126,7 @@ describe("useAuthForm('sign-in')", () => {
     await waitFor(() => expect(hoisted.signInEmail).toHaveBeenCalledTimes(1));
     expect(hoisted.signInEmail.mock.calls[0][0].callbackURL).toBe("/dashboard");
     await waitFor(() =>
-      expect(hoisted.pushMock).toHaveBeenCalledWith("/dashboard"),
+      expect(hoisted.pushMock).toHaveBeenCalledWith("/dashboard")
     );
   });
 
@@ -134,7 +142,7 @@ describe("useAuthForm('sign-in')", () => {
     await user.click(screen.getByRole("button"));
 
     await waitFor(() =>
-      expect(hoisted.toastError).toHaveBeenCalledWith("invalid credentials"),
+      expect(hoisted.toastError).toHaveBeenCalledWith("invalid credentials")
     );
     expect(hoisted.pushMock).not.toHaveBeenCalled();
   });
@@ -216,7 +224,7 @@ describe("useAuthForm('sign-up')", () => {
     await user.click(screen.getByRole("button"));
 
     await waitFor(() =>
-      expect(hoisted.toastError).toHaveBeenCalledWith("email already exists"),
+      expect(hoisted.toastError).toHaveBeenCalledWith("email already exists")
     );
     expect(hoisted.pushMock).not.toHaveBeenCalled();
   });

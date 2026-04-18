@@ -11,7 +11,10 @@ describe("SignInSchema", () => {
   });
 
   it("rejects an invalid email", () => {
-    const parsed = SignInSchema.safeParse({ email: "not-an-email", password: "x" });
+    const parsed = SignInSchema.safeParse({
+      email: "not-an-email",
+      password: "x",
+    });
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
       expect(parsed.error.issues[0].path).toEqual(["email"]);
@@ -46,7 +49,7 @@ describe("SignUpSchema", () => {
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
       const issue = parsed.error.issues.find((i) =>
-        i.path.includes("confirmPassword"),
+        i.path.includes("confirmPassword")
       );
       expect(issue?.message).toBe("Passwords do not match");
     }
