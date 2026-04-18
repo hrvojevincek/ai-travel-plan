@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
 import { getSession } from "@/features/auth";
+import { logAndFail } from "@/lib/action-error";
 import { createTrip, deleteTripForUser } from "./data";
 import { GeneratedTrip, toCreateTripInput } from "./generate";
 import { getDestinationImage } from "./image";
@@ -32,11 +33,7 @@ export async function saveTrip(raw: unknown): Promise<SaveTripResult> {
     revalidatePath("/dashboard");
     return { ok: true, id };
   } catch (e) {
-    console.error(
-      "[saveTrip] failed:",
-      e instanceof Error ? { message: e.message, stack: e.stack } : e
-    );
-    return { ok: false, code: "FAILED" };
+    return logAndFail("saveTrip", e);
   }
 }
 
@@ -58,10 +55,6 @@ export async function deleteTripAction(id: string): Promise<DeleteTripResult> {
     revalidatePath("/dashboard");
     return { ok: true };
   } catch (e) {
-    console.error(
-      "[deleteTripAction] failed:",
-      e instanceof Error ? { message: e.message, stack: e.stack } : e
-    );
-    return { ok: false, code: "FAILED" };
+    return logAndFail("deleteTripAction", e);
   }
 }
