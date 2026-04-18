@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       Math.ceil((rl.reset - Date.now()) / 1000)
     );
     console.warn(
-      `[trips/generate] rate-limited ip=${ip} scope=${rl.scope} retryAfter=${retryAfterSeconds}s`
+      `[trips/generate] rate-limited scope=${rl.scope} retryAfter=${retryAfterSeconds}s`
     );
     const message =
       rl.scope === "day"
