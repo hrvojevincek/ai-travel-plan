@@ -2,7 +2,12 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { type UseFormReturn, useForm } from "react-hook-form";
+import {
+  type DefaultValues,
+  type Resolver,
+  type UseFormReturn,
+  useForm,
+} from "react-hook-form";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { safeInternalRedirect } from "./safe-redirect";
@@ -45,8 +50,8 @@ export function useAuthForm<K extends AuthKind>(
     kind === "sign-in" ? SIGN_IN_DEFAULTS : SIGN_UP_DEFAULTS;
 
   const form = useForm<AuthFormValues<K>>({
-    resolver: zodResolver(schema),
-    defaultValues: defaultValues as AuthFormValues<K>,
+    resolver: zodResolver(schema) as unknown as Resolver<AuthFormValues<K>>,
+    defaultValues: defaultValues as DefaultValues<AuthFormValues<K>>,
   });
 
   const submit = form.handleSubmit(async (values) => {

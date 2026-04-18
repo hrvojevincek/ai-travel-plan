@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { type Resolver, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -23,7 +23,7 @@ import {
 export function SearchForm() {
   const router = useRouter();
   const form = useForm<SearchFormValues>({
-    resolver: zodResolver(SearchFormSchema),
+    resolver: zodResolver(SearchFormSchema) as unknown as Resolver<SearchFormValues>,
     defaultValues: {
       destination: "",
       duration: 3,
