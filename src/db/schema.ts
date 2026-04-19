@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -41,7 +42,7 @@ export const session = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [index("session_userId_idx").on(table.userId)],
+  (table) => [index("session_userId_idx").on(table.userId)]
 );
 
 export const account = pgTable(
@@ -65,7 +66,7 @@ export const account = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
+  (table) => [index("account_userId_idx").on(table.userId)]
 );
 
 export const verification = pgTable(
@@ -81,7 +82,7 @@ export const verification = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("verification_identifier_idx").on(table.identifier)],
+  (table) => [index("verification_identifier_idx").on(table.identifier)]
 );
 
 export const activityType = pgEnum("activity_type", [
@@ -103,7 +104,10 @@ export const trip = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     destination: text("destination").notNull(),
     summary: text("summary"),
-    totalEstimatedCost: numeric("total_estimated_cost", { precision: 10, scale: 2 }),
+    totalEstimatedCost: numeric("total_estimated_cost", {
+      precision: 10,
+      scale: 2,
+    }),
     imageUrl: text("image_url"),
     imageAttribution: text("image_attribution"),
     // Destination coords captured from Places Autocomplete at search time.
@@ -118,7 +122,7 @@ export const trip = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("trip_userId_idx").on(table.userId)],
+  (table) => [index("trip_userId_idx").on(table.userId)]
 );
 
 export const day = pgTable(
@@ -134,7 +138,7 @@ export const day = pgTable(
     index("day_tripId_idx").on(table.tripId),
     uniqueIndex("day_tripId_dayNumber_uniq").on(table.tripId, table.dayNumber),
     check("chk_day_dayNumber_min", sql`${table.dayNumber} >= 1`),
-  ],
+  ]
 );
 
 export const activity = pgTable(
@@ -159,9 +163,38 @@ export const activity = pgTable(
   },
   (table) => [
     index("activity_dayId_idx").on(table.dayId),
-    uniqueIndex("activity_dayId_orderIndex_uniq").on(table.dayId, table.orderIndex),
+    uniqueIndex("activity_dayId_orderIndex_uniq").on(
+      table.dayId,
+      table.orderIndex
+    ),
     check("chk_activity_orderIndex_min", sql`${table.orderIndex} >= 0`),
-  ],
+  ]
+);
+
+// Cache of AI trip generations keyed by (destination, duration, preferences).
+// Same input reuses the stored response — includes geocoded activity coords so
+// the map renders pins on first view without re-hitting Geocoding. See KRE-32.
+// `preferences_hash` stores sha256 of the normalized preferences text so we
+// never persist raw user-entered prompt content in a globally shared table.
+export const generationCache = pgTable(
+  "generation_cache",
+  {
+    id: text("id").primaryKey(),
+    destinationKey: text("destination_key").notNull(),
+    duration: integer("duration").notNull(),
+    preferencesHash: text("preferences_hash").notNull(),
+    response: jsonb("response").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at").defaultNow().notNull(),
+    hitCount: integer("hit_count").default(1).notNull(),
+  },
+  (table) => [
+    uniqueIndex("generation_cache_key_uniq").on(
+      table.destinationKey,
+      table.duration,
+      table.preferencesHash
+    ),
+  ]
 );
 
 export const userRelations = relations(user, ({ many }) => ({

@@ -6,7 +6,7 @@ import { db } from "@/db/client";
 import { getSession } from "@/features/auth";
 import { logAndFail } from "@/lib/action-error";
 import { createTrip, deleteTripForUser } from "./data";
-import { GeneratedTrip, toCreateTripInput } from "./generate";
+import { GeneratedTripResponse, toCreateTripInput } from "./generate";
 import { geocodeMany } from "./geocode";
 import { getDestinationImage } from "./image";
 
@@ -33,7 +33,7 @@ export async function saveTrip(
   const session = await getSession();
   if (!session) return { ok: false, code: "UNAUTH" };
 
-  const parsed = GeneratedTrip.safeParse(raw);
+  const parsed = GeneratedTripResponse.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, code: "INVALID", message: parsed.error.message };
   }
@@ -50,24 +50,35 @@ export async function saveTrip(
     input.destinationPlaceId = destinationPick.data.placeId;
   }
 
-  // Batch-geocode activities in parallel. Missing coords (null) are fine —
-  // the activity just renders without a map pin.
-  const geocodeRequests = input.days.flatMap((d) =>
-    d.activities.map((a) => ({
-      name: a.name,
-      query: `${a.name}, ${parsed.data.destination}`,
-    }))
-  );
-  const coords = await geocodeMany(geocodeRequests);
-  let i = 0;
-  for (const d of input.days) {
-    for (const a of d.activities) {
-      const c = coords[i++];
-      if (c) {
-        a.latitude = c.latitude;
-        a.longitude = c.longitude;
+  // Geocode only activities that were never attempted (e.g. mock trips that
+  // skipped the generate endpoint). Activities that arrived from the cached
+  // /api/trips/generate response already carry explicit `null` for failed
+  // geocodes — retrying those here would burn Geocoding quota on addresses we
+  // already know are bad. `undefined` means "never attempted"; `null` means
+  // "attempted and failed"; a number means "resolved".
+  const missing: { dayIdx: number; actIdx: number; query: string }[] = [];
+  parsed.data.days.forEach((d, dayIdx) => {
+    d.activities.forEach((a, actIdx) => {
+      if (a.latitude === undefined || a.longitude === undefined) {
+        missing.push({
+          dayIdx,
+          actIdx,
+          query: `${a.name}, ${parsed.data.destination}`,
+        });
       }
-    }
+    });
+  });
+  if (missing.length > 0) {
+    const coords = await geocodeMany(
+      missing.map((m) => ({ name: m.query, query: m.query }))
+    );
+    missing.forEach((m, i) => {
+      const c = coords[i];
+      if (c) {
+        input.days[m.dayIdx].activities[m.actIdx].latitude = c.latitude;
+        input.days[m.dayIdx].activities[m.actIdx].longitude = c.longitude;
+      }
+    });
   }
 
   const image = await getDestinationImage(parsed.data.destination);

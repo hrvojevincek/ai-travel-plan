@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { generateTrip } from "@/features/trips/generate";
+import { db } from "@/db/client";
+import { buildCacheKey, readCache, writeCache } from "@/features/trips/cache";
+import {
+  type GeneratedTripResponseT,
+  generateTrip,
+} from "@/features/trips/generate";
+import { geocodeMany } from "@/features/trips/geocode";
 import { checkTripGenerateLimit, clientIp } from "@/lib/rate-limit";
 
 // Node serverless runtime. Without streaming we don't need Edge's long-lived
@@ -13,9 +19,18 @@ const Body = z.object({
   preferences: z.string().max(500).optional(),
 });
 
+// Module-scoped in-flight map dedupes concurrent cache misses for the same
+// key so two identical cold requests share one generateTrip+geocode run.
+// Only effective within a single serverless instance — acceptable because
+// Vercel serves most concurrent hits from one warm instance, and worst case
+// two instances duplicate work (rate-limit + cache still bound total cost).
+const inflight = new Map<string, Promise<GeneratedTripResponseT>>();
+
 // Endpoint is intentionally unauthenticated per KRE-16/KRE-17 (unauth users can
 // generate; auth is prompted at save time). Rate-limited per-IP via Upstash
-// to cap OpenAI spend — see `lib/rate-limit`.
+// to cap OpenAI spend — see `lib/rate-limit`. AI+Geocoding results are cached
+// by normalized (destination, duration, preferences) so duplicate inputs are
+// served from the DB — see `features/trips/cache` (KRE-32).
 export async function POST(req: Request) {
   const ip = clientIp(req.headers);
   const rl = await checkTripGenerateLimit(ip);
@@ -50,12 +65,81 @@ export async function POST(req: Request) {
   }
 
   try {
-    const trip = await generateTrip(parsed.data);
-    return Response.json(trip);
+    const cached = await readCache(db, parsed.data).catch((e) => {
+      console.warn("[trips/generate] cache read failed, passing through:", e);
+      return null;
+    });
+    if (cached) {
+      return Response.json(cached);
+    }
+
+    const { id: inflightKey } = buildCacheKey(parsed.data);
+    const existing = inflight.get(inflightKey);
+    const generation =
+      existing ??
+      (async () => {
+        const trip = await generateTrip(parsed.data);
+        return attachCoords(trip);
+      })();
+    if (!existing) inflight.set(inflightKey, generation);
+
+    let response: GeneratedTripResponseT;
+    try {
+      response = await generation;
+    } finally {
+      if (!existing) inflight.delete(inflightKey);
+    }
+
+    // Await the write so the cache is persisted before the handler returns —
+    // otherwise a serverless instance can freeze mid-write and lose the entry.
+    await writeCache(db, parsed.data, response).catch((e) => {
+      console.warn("[trips/generate] cache write failed:", e);
+    });
+
+    return Response.json(response);
   } catch (error) {
     console.error("[trips/generate] failed:", error);
     return Response.json({ error: friendlyMessage(error) }, { status: 502 });
   }
+}
+
+// Geocodes every activity in the trip, returning a response with per-activity
+// coords. Geocoder failures degrade gracefully — we still return the trip with
+// the failed entries marked `null` so pins just don't render for them.
+async function attachCoords(
+  trip: Awaited<ReturnType<typeof generateTrip>>
+): Promise<GeneratedTripResponseT> {
+  const requests = trip.days.flatMap((d) =>
+    d.activities.map((a) => ({
+      name: a.name,
+      query: `${a.name}, ${trip.destination}`,
+    }))
+  );
+  let coords: Awaited<ReturnType<typeof geocodeMany>>;
+  try {
+    coords = await geocodeMany(requests);
+  } catch (e) {
+    console.warn(
+      "[trips/generate] geocodeMany threw; returning trip without coords:",
+      e instanceof Error ? e.message : e
+    );
+    coords = requests.map(() => null);
+  }
+  let i = 0;
+  return {
+    ...trip,
+    days: trip.days.map((d) => ({
+      dayNumber: d.dayNumber,
+      activities: d.activities.map((a) => {
+        const c = coords[i++];
+        return {
+          ...a,
+          latitude: c?.latitude ?? null,
+          longitude: c?.longitude ?? null,
+        };
+      }),
+    })),
+  };
 }
 
 function friendlyMessage(error: unknown): string {
