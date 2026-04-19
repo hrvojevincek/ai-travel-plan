@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/db/client";
 import { requireAuth } from "@/features/auth";
 import { getTrip } from "@/features/trips/data";
-import { TripView, tripRowToPartial } from "@/features/trips/view";
+import { tripRowToPartial } from "@/features/trips/view";
+import { TripDetailClient } from "./trip-detail-client";
 
 export const metadata = { title: "Trip · Voyago" };
 
@@ -20,8 +21,9 @@ export default async function TripDetailPage({
   const duration = row.days.length || 1;
 
   return (
-    <TripView
-      trip={trip}
+    <TripDetailClient
+      tripId={id}
+      initialTrip={trip}
       expectedDays={duration}
       destination={row.destination}
       destinationLat={
