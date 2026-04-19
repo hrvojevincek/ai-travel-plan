@@ -203,6 +203,42 @@ describe("findPlaceMany", () => {
     expect(startTimes.c).toBeLessThan(endTimes.b);
   });
 
+  it("caps concurrency at 5 workers so large batches don't trip OVER_QUERY_LIMIT", async () => {
+    const DELAY_MS = 30;
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const fetcher = vi.fn(async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, DELAY_MS));
+      inFlight--;
+      return new Response(
+        JSON.stringify({
+          status: "OK",
+          candidates: [
+            {
+              place_id: "pid",
+              geometry: { location: { lat: 1, lng: 1 } },
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    }) as unknown as typeof fetch;
+
+    // 20 inputs — enough to prove the cap held across multiple waves.
+    const inputs = Array.from({ length: 20 }, (_, i) => ({
+      name: `n-${i}`,
+      query: `q-${i}`,
+    }));
+    const out = await findPlaceMany(inputs, fetcher);
+
+    expect(out).toHaveLength(20);
+    expect(out.every((r) => r !== null)).toBe(true);
+    expect(maxInFlight).toBeLessThanOrEqual(5);
+    expect(maxInFlight).toBeGreaterThanOrEqual(5);
+  });
+
   it("keeps a null slot for individual failures without breaking siblings", async () => {
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = input.toString();

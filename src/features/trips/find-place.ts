@@ -97,10 +97,33 @@ export async function findPlaceOne(
   }
 }
 
-/** Batch-lookup several places in parallel; order preserved, `null` on miss. */
+/** Max simultaneous Places Find Place requests per batch. Google's per-project
+ *  QPS limits aren't publicly documented but a common default is ~10 QPS —
+ *  an unbounded fanout of 210 (30-day trip × 7 activities) would routinely
+ *  trip OVER_QUERY_LIMIT. 5 keeps us well clear while still finishing a
+ *  cold-generate inside the 60s route timeout. */
+const MAX_CONCURRENCY = 5;
+
+/** Batch-lookup several places with bounded concurrency; order preserved,
+ *  `null` on miss. */
 export async function findPlaceMany(
   requests: FindPlaceRequest[],
   fetcher: typeof fetch = fetch
 ): Promise<(FindPlaceResult | null)[]> {
-  return Promise.all(requests.map((r) => findPlaceOne(r.query, fetcher)));
+  const results: (FindPlaceResult | null)[] = new Array(requests.length).fill(
+    null
+  );
+  let next = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const index = next++;
+      if (index >= requests.length) return;
+      results[index] = await findPlaceOne(requests[index].query, fetcher);
+    }
+  }
+
+  const workerCount = Math.min(MAX_CONCURRENCY, requests.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 }
