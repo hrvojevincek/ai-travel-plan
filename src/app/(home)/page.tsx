@@ -1,7 +1,9 @@
 import Image from "next/image";
+import { getSession } from "@/features/auth";
 import { SearchForm } from "@/features/home-search";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
   return (
     <div className="relative min-h-screen overflow-hidden">
       <Image src="/wings.avif" alt="" fill priority className="object-cover" />
@@ -28,7 +30,7 @@ export default function Home() {
             </p>
           </div>
 
-          <SearchForm />
+          <SearchForm showPreferences={!!session} />
         </div>
       </div>
     </div>

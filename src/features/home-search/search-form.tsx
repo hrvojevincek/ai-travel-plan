@@ -21,7 +21,12 @@ import {
   type SearchFormValues,
 } from "./schema";
 
-export function SearchForm() {
+interface SearchFormProps {
+  /** Show the preferences textarea. Gated to signed-in users. */
+  showPreferences?: boolean;
+}
+
+export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
   const router = useRouter();
   const form = useForm<SearchFormValues>({
     resolver: zodResolver(
@@ -112,26 +117,28 @@ export function SearchForm() {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="preferences"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className={labelClass}>
-                Preferences <span className="text-white/60">(optional)</span>
-              </FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  placeholder="Vegan, no museums, local markets..."
-                  rows={3}
-                  className="resize-none border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {showPreferences && (
+          <FormField
+            control={form.control}
+            name="preferences"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={labelClass}>
+                  Preferences <span className="text-white/60">(optional)</span>
+                </FormLabel>
+                <FormControl>
+                  <Textarea
+                    {...field}
+                    placeholder="Vegan, no museums, local markets..."
+                    rows={3}
+                    className="resize-none border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <Button
           type="submit"
           size="lg"

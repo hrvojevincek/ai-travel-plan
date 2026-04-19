@@ -17,9 +17,9 @@ beforeEach(() => {
 });
 
 describe("SearchForm", () => {
-  it("navigates to /trip/new with the typed query params on submit", async () => {
+  it("navigates to /trip/new with the typed query params on submit (signed in, preferences visible)", async () => {
     const user = userEvent.setup();
-    render(<SearchForm />);
+    render(<SearchForm showPreferences />);
 
     await user.type(screen.getByLabelText("Destination"), "Lisbon");
     await user.clear(screen.getByLabelText("Duration (days)"));
@@ -60,7 +60,16 @@ describe("SearchForm", () => {
     expect(hoisted.pushMock).not.toHaveBeenCalled();
   });
 
-  it("submits without preferences", async () => {
+  it("guest view (default) hides the preferences field", () => {
+    render(<SearchForm />);
+    expect(screen.getByLabelText("Destination")).toBeInTheDocument();
+    expect(screen.getByLabelText("Duration (days)")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Preferences (optional)"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("guest submit still works and omits preferences from the URL", async () => {
     const user = userEvent.setup();
     render(<SearchForm />);
     await user.type(screen.getByLabelText("Destination"), "Porto");
