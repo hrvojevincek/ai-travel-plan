@@ -16,19 +16,24 @@ interface NormalizedKey {
   id: string;
   destinationKey: string;
   duration: number;
-  preferencesKey: string;
+  preferencesHash: string;
 }
 
 function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function sha256(s: string): string {
+  return createHash("sha256").update(s).digest("hex");
+}
+
 export function buildCacheKey(input: CacheKeyInput): NormalizedKey {
   const destinationKey = normalize(input.destination);
-  const preferencesKey = normalize(input.preferences ?? "");
-  const payload = `${destinationKey}|${input.duration}|${preferencesKey}`;
-  const id = createHash("sha256").update(payload).digest("hex");
-  return { id, destinationKey, duration: input.duration, preferencesKey };
+  const preferencesNorm = normalize(input.preferences ?? "");
+  const preferencesHash = sha256(preferencesNorm);
+  // Full-tuple hash for PK; preferences alone hashed for the indexable column.
+  const id = sha256(`${destinationKey}|${input.duration}|${preferencesNorm}`);
+  return { id, destinationKey, duration: input.duration, preferencesHash };
 }
 
 export async function readCache(
@@ -37,13 +42,16 @@ export async function readCache(
 ): Promise<GeneratedTripResponseT | null> {
   const key = buildCacheKey(input);
   const rows = await db
-    .select({ response: generationCache.response })
+    .select({
+      id: generationCache.id,
+      response: generationCache.response,
+    })
     .from(generationCache)
     .where(
       and(
         eq(generationCache.destinationKey, key.destinationKey),
         eq(generationCache.duration, key.duration),
-        eq(generationCache.preferencesKey, key.preferencesKey)
+        eq(generationCache.preferencesHash, key.preferencesHash)
       )
     )
     .limit(1);
@@ -54,9 +62,9 @@ export async function readCache(
   const parsed = GeneratedTripResponse.safeParse(row.response);
   if (!parsed.success) {
     console.warn(
-      `[trip-cache] stored response failed schema parse id=${key.id} — evicting`
+      `[trip-cache] stored response failed schema parse id=${row.id} — evicting`
     );
-    await db.delete(generationCache).where(eq(generationCache.id, key.id));
+    await db.delete(generationCache).where(eq(generationCache.id, row.id));
     return null;
   }
 
@@ -66,7 +74,7 @@ export async function readCache(
       lastUsedAt: new Date(),
       hitCount: sql`${generationCache.hitCount} + 1`,
     })
-    .where(eq(generationCache.id, key.id));
+    .where(eq(generationCache.id, row.id));
 
   return parsed.data;
 }
@@ -83,7 +91,7 @@ export async function writeCache(
       id: key.id,
       destinationKey: key.destinationKey,
       duration: key.duration,
-      preferencesKey: key.preferencesKey,
+      preferencesHash: key.preferencesHash,
       response,
     })
     .onConflictDoNothing({ target: generationCache.id });

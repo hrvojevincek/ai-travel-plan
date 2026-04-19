@@ -174,13 +174,15 @@ export const activity = pgTable(
 // Cache of AI trip generations keyed by (destination, duration, preferences).
 // Same input reuses the stored response — includes geocoded activity coords so
 // the map renders pins on first view without re-hitting Geocoding. See KRE-32.
+// `preferences_hash` stores sha256 of the normalized preferences text so we
+// never persist raw user-entered prompt content in a globally shared table.
 export const generationCache = pgTable(
   "generation_cache",
   {
     id: text("id").primaryKey(),
     destinationKey: text("destination_key").notNull(),
     duration: integer("duration").notNull(),
-    preferencesKey: text("preferences_key").notNull(),
+    preferencesHash: text("preferences_hash").notNull(),
     response: jsonb("response").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     lastUsedAt: timestamp("last_used_at").defaultNow().notNull(),
@@ -190,7 +192,7 @@ export const generationCache = pgTable(
     uniqueIndex("generation_cache_key_uniq").on(
       table.destinationKey,
       table.duration,
-      table.preferencesKey
+      table.preferencesHash
     ),
   ]
 );

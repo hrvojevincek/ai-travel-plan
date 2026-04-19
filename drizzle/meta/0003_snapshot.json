@@ -1,5 +1,5 @@
 {
-  "id": "62b13268-c6e7-4101-acb8-f9e79e5f7a19",
+  "id": "ba87960e-db51-4ba1-b39a-932d3f716297",
   "prevId": "95083a2c-af71-4278-ac45-76a3c550380f",
   "version": "7",
   "dialect": "postgresql",
@@ -371,8 +371,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "preferences_key": {
-          "name": "preferences_key",
+        "preferences_hash": {
+          "name": "preferences_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -422,7 +422,7 @@
               "nulls": "last"
             },
             {
-              "expression": "preferences_key",
+              "expression": "preferences_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

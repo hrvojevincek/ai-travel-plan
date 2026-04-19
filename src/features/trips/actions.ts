@@ -50,13 +50,16 @@ export async function saveTrip(
     input.destinationPlaceId = destinationPick.data.placeId;
   }
 
-  // Geocode only activities that arrived without coords (e.g. cache miss + old
-  // client, or mock trips). When the generate endpoint pre-geocoded, we skip
-  // this entirely — one Google Geocoding charge per unique generation.
+  // Geocode only activities that were never attempted (e.g. mock trips that
+  // skipped the generate endpoint). Activities that arrived from the cached
+  // /api/trips/generate response already carry explicit `null` for failed
+  // geocodes — retrying those here would burn Geocoding quota on addresses we
+  // already know are bad. `undefined` means "never attempted"; `null` means
+  // "attempted and failed"; a number means "resolved".
   const missing: { dayIdx: number; actIdx: number; query: string }[] = [];
-  input.days.forEach((d, dayIdx) => {
+  parsed.data.days.forEach((d, dayIdx) => {
     d.activities.forEach((a, actIdx) => {
-      if (a.latitude == null || a.longitude == null) {
+      if (a.latitude === undefined || a.longitude === undefined) {
         missing.push({
           dayIdx,
           actIdx,

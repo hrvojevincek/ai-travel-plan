@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { readCache, writeCache } from "@/features/trips/cache";
+import { buildCacheKey, readCache, writeCache } from "@/features/trips/cache";
 import {
   type GeneratedTripResponseT,
   generateTrip,
@@ -18,6 +18,13 @@ const Body = z.object({
   duration: z.coerce.number().int().min(1).max(30),
   preferences: z.string().max(500).optional(),
 });
+
+// Module-scoped in-flight map dedupes concurrent cache misses for the same
+// key so two identical cold requests share one generateTrip+geocode run.
+// Only effective within a single serverless instance — acceptable because
+// Vercel serves most concurrent hits from one warm instance, and worst case
+// two instances duplicate work (rate-limit + cache still bound total cost).
+const inflight = new Map<string, Promise<GeneratedTripResponseT>>();
 
 // Endpoint is intentionally unauthenticated per KRE-16/KRE-17 (unauth users can
 // generate; auth is prompted at save time). Rate-limited per-IP via Upstash
@@ -66,10 +73,26 @@ export async function POST(req: Request) {
       return Response.json(cached);
     }
 
-    const trip = await generateTrip(parsed.data);
-    const response = await attachCoords(trip);
+    const { id: inflightKey } = buildCacheKey(parsed.data);
+    const existing = inflight.get(inflightKey);
+    const generation =
+      existing ??
+      (async () => {
+        const trip = await generateTrip(parsed.data);
+        return attachCoords(trip);
+      })();
+    if (!existing) inflight.set(inflightKey, generation);
 
-    writeCache(db, parsed.data, response).catch((e) => {
+    let response: GeneratedTripResponseT;
+    try {
+      response = await generation;
+    } finally {
+      if (!existing) inflight.delete(inflightKey);
+    }
+
+    // Await the write so the cache is persisted before the handler returns —
+    // otherwise a serverless instance can freeze mid-write and lose the entry.
+    await writeCache(db, parsed.data, response).catch((e) => {
       console.warn("[trips/generate] cache write failed:", e);
     });
 
@@ -80,6 +103,9 @@ export async function POST(req: Request) {
   }
 }
 
+// Geocodes every activity in the trip, returning a response with per-activity
+// coords. Geocoder failures degrade gracefully — we still return the trip with
+// the failed entries marked `null` so pins just don't render for them.
 async function attachCoords(
   trip: Awaited<ReturnType<typeof generateTrip>>
 ): Promise<GeneratedTripResponseT> {
@@ -89,7 +115,16 @@ async function attachCoords(
       query: `${a.name}, ${trip.destination}`,
     }))
   );
-  const coords = await geocodeMany(requests);
+  let coords: Awaited<ReturnType<typeof geocodeMany>>;
+  try {
+    coords = await geocodeMany(requests);
+  } catch (e) {
+    console.warn(
+      "[trips/generate] geocodeMany threw; returning trip without coords:",
+      e instanceof Error ? e.message : e
+    );
+    coords = requests.map(() => null);
+  }
   let i = 0;
   return {
     ...trip,

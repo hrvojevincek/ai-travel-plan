@@ -56,7 +56,7 @@ describe("buildCacheKey", () => {
     });
     expect(a.id).toBe(b.id);
     expect(a.destinationKey).toBe("lisbon, portugal");
-    expect(a.preferencesKey).toBe("vegan , no museums");
+    expect(a.preferencesHash).toBe(b.preferencesHash);
   });
 
   it("treats missing vs empty preferences the same", () => {
@@ -67,7 +67,18 @@ describe("buildCacheKey", () => {
       preferences: "",
     });
     expect(a.id).toBe(b.id);
-    expect(a.preferencesKey).toBe("");
+    expect(a.preferencesHash).toBe(b.preferencesHash);
+  });
+
+  it("never persists raw preferences text in the key", () => {
+    const key = buildCacheKey({
+      destination: "Porto",
+      duration: 2,
+      preferences: "my secret prompt with PII",
+    });
+    expect(key.preferencesHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(key.preferencesHash).not.toContain("secret");
+    expect(key.preferencesHash).not.toContain("PII");
   });
 
   it("produces different ids for different durations", () => {
