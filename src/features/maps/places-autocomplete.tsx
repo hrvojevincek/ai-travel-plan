@@ -61,10 +61,19 @@ export function PlacesAutocomplete({
     suggestions: { status, data },
     setValue,
     clearSuggestions,
+    init,
   } = usePlacesAutocomplete({
+    // @vis.gl/react-google-maps owns the script loader; don't let
+    // use-places-autocomplete load a second copy. Init manually once
+    // the places library is ready.
+    initOnMount: false,
     debounce: 250,
     requestOptions: { types: ["(cities)"] },
   });
+
+  useEffect(() => {
+    if (placesLib) init();
+  }, [placesLib, init]);
 
   // Keep the hook's internal value in sync with the form's value. Only
   // depends on the external `value` — internal inputValue is derived.
