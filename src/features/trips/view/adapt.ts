@@ -28,6 +28,8 @@ export function tripRowToPartial(row: TripWithDays): PartialTrip {
         address: a.address ?? undefined,
         estimatedCost:
           a.estimatedCost != null ? Number(a.estimatedCost) : undefined,
+        latitude: a.latitude != null ? Number(a.latitude) : null,
+        longitude: a.longitude != null ? Number(a.longitude) : null,
       })),
     })),
   };

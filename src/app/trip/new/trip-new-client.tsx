@@ -40,6 +40,17 @@ async function fetchGeneratedTrip(input: {
   return parsed.data;
 }
 
+function parseNumericParam(
+  value: string | null,
+  min: number,
+  max: number
+): number | null {
+  if (!value) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < min || n > max) return null;
+  return n;
+}
+
 export function TripNewClient() {
   const params = useSearchParams();
   const router = useRouter();
@@ -50,6 +61,9 @@ export function TripNewClient() {
   );
   const preferences = params.get("preferences") ?? undefined;
   const mock = params.get("mock") === "1";
+  const destinationLat = parseNumericParam(params.get("lat"), -90, 90);
+  const destinationLng = parseNumericParam(params.get("lng"), -180, 180);
+  const placeId = params.get("placeId") || undefined;
 
   const [isSaving, startSaving] = useTransition();
   const autoSaveFired = useRef(false);
@@ -91,7 +105,11 @@ export function TripNewClient() {
   const runSave = useCallback(
     (data: GeneratedTripT) => {
       startSaving(async () => {
-        const res = await saveTrip(data);
+        const destinationPick =
+          placeId && destinationLat != null && destinationLng != null
+            ? { placeId, lat: destinationLat, lng: destinationLng }
+            : undefined;
+        const res = await saveTrip(data, { destination: destinationPick });
         if (res.ok) {
           router.push(`/trip/${res.id}`);
           return;
@@ -102,6 +120,9 @@ export function TripNewClient() {
             destination,
             duration: String(duration),
             ...(preferences ? { preferences } : {}),
+            ...(placeId ? { placeId } : {}),
+            ...(destinationLat != null ? { lat: String(destinationLat) } : {}),
+            ...(destinationLng != null ? { lng: String(destinationLng) } : {}),
             saveOnLoad: "1",
           });
           const returnTo = `/trip/new?${qs.toString()}`;
@@ -111,7 +132,15 @@ export function TripNewClient() {
         toast.error(res.message ?? "Couldn't save trip. Please try again.");
       });
     },
-    [destination, duration, preferences, router]
+    [
+      destination,
+      duration,
+      preferences,
+      placeId,
+      destinationLat,
+      destinationLng,
+      router,
+    ]
   );
 
   const handleSave = () => {
@@ -149,6 +178,8 @@ export function TripNewClient() {
       trip={trip}
       expectedDays={duration}
       destination={destination}
+      destinationLat={destinationLat}
+      destinationLng={destinationLng}
       canSave={canSave}
       saveLabel={isSaving ? "Saving…" : "Save trip"}
       onSave={handleSave}

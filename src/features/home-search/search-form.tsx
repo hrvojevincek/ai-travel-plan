@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { hasMapsApiKey, PlacesAutocomplete } from "@/features/maps";
 import {
   buildTripNewHref,
   SearchFormSchema,
@@ -23,7 +24,9 @@ import {
 export function SearchForm() {
   const router = useRouter();
   const form = useForm<SearchFormValues>({
-    resolver: zodResolver(SearchFormSchema) as unknown as Resolver<SearchFormValues>,
+    resolver: zodResolver(
+      SearchFormSchema
+    ) as unknown as Resolver<SearchFormValues>,
     defaultValues: {
       destination: "",
       duration: 3,
@@ -36,6 +39,7 @@ export function SearchForm() {
   });
 
   const isPending = form.formState.isSubmitting;
+  const mapsEnabled = hasMapsApiKey();
 
   const inputClass =
     "h-11 border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30";
@@ -51,12 +55,38 @@ export function SearchForm() {
             <FormItem>
               <FormLabel className={labelClass}>Destination</FormLabel>
               <FormControl>
-                <Input
-                  {...field}
-                  placeholder="Lisbon, Portugal"
-                  autoComplete="off"
-                  className={inputClass}
-                />
+                {mapsEnabled ? (
+                  <PlacesAutocomplete
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    inputRef={field.ref}
+                    onPick={(pick) => {
+                      form.setValue("destination", pick.description);
+                      form.setValue("placeId", pick.placeId);
+                      form.setValue("destinationLat", pick.lat);
+                      form.setValue("destinationLng", pick.lng);
+                    }}
+                    onClearPick={() => {
+                      form.setValue("placeId", undefined);
+                      form.setValue("destinationLat", undefined);
+                      form.setValue("destinationLng", undefined);
+                    }}
+                    placeholder="Lisbon, Portugal"
+                    autoComplete="off"
+                    className={inputClass}
+                    aria-invalid={
+                      !!form.formState.errors.destination || undefined
+                    }
+                  />
+                ) : (
+                  <Input
+                    {...field}
+                    placeholder="Lisbon, Portugal"
+                    autoComplete="off"
+                    className={inputClass}
+                  />
+                )}
               </FormControl>
               <FormMessage />
             </FormItem>
