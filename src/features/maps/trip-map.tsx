@@ -79,7 +79,9 @@ export function TripMap({
         {selected && (
           <InfoWindow
             position={{ lat: selected.latitude, lng: selected.longitude }}
-            pixelOffset={[0, -36]}
+            // Clears the scale-1.4 Pin (~56px) + day-number badge (~7px) with
+            // a few px of breathing room above.
+            pixelOffset={[0, -64]}
             onCloseClick={() => onSelectActivity(null)}
           >
             <ActivityInfoContent activity={selected} />
