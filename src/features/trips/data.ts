@@ -137,6 +137,9 @@ export async function updateActivity(
   if (patch.longitude !== undefined)
     update.longitude =
       patch.longitude != null ? patch.longitude.toFixed(6) : null;
+  if (patch.placeId !== undefined) update.placeId = patch.placeId ?? null;
+  if (patch.photoReference !== undefined)
+    update.photoReference = patch.photoReference ?? null;
   if (patch.orderIndex !== undefined) update.orderIndex = patch.orderIndex;
 
   if (Object.keys(update).length === 0) return;

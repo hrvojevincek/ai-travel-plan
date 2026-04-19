@@ -13,6 +13,8 @@ import type { GeneratedActivityTypeT, GeneratedTripT } from "../generate";
 type PartialActivity = Partial<
   GeneratedTripT["days"][number]["activities"][number]
 > & {
+  /** DB row id — present for persisted trips, absent on /trip/new. */
+  id?: string;
   latitude?: number | null;
   longitude?: number | null;
   placeId?: string | null;
@@ -36,7 +38,9 @@ interface TripViewProps {
   onSave?: () => void;
   canSave?: boolean;
   saveLabel?: string;
-  onSwapActivity?: (dayNumber: number, activityIndex: number) => void;
+  onSwapActivity?: (activityId: string) => void;
+  /** Id of the activity currently being swapped — renders a loading state. */
+  swappingActivityId?: string | null;
   destinationLat?: number | null;
   destinationLng?: number | null;
 }
@@ -53,6 +57,7 @@ export function TripView({
   canSave,
   saveLabel = "Save trip",
   onSwapActivity,
+  swappingActivityId,
   destinationLat,
   destinationLng,
 }: TripViewProps) {
@@ -116,6 +121,7 @@ export function TripView({
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 onSwapActivity={onSwapActivity}
+                swappingActivityId={swappingActivityId}
               />
             );
           })}
@@ -218,12 +224,14 @@ function DaySection({
   selectedId,
   onSelect,
   onSwapActivity,
+  swappingActivityId,
 }: {
   dayNumber: number;
   activities: (PartialActivity | undefined)[] | undefined;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  onSwapActivity?: (dayNumber: number, activityIndex: number) => void;
+  onSwapActivity?: (activityId: string) => void;
+  swappingActivityId?: string | null;
 }) {
   const hasContent = Array.isArray(activities) && activities.length > 0;
 
@@ -234,6 +242,9 @@ function DaySection({
         <ol className="space-y-4">
           {activities.map((a, i) => {
             const id = activityId(dayNumber, i);
+            // Swap is only offered for persisted activities that have a DB id.
+            const canSwap = Boolean(onSwapActivity && a?.id);
+            const isSwapping = Boolean(a?.id && swappingActivityId === a.id);
             return (
               <li key={`day-${dayNumber}-${SKELETON_KEYS[i] ?? i}`}>
                 <ActivityCard
@@ -241,10 +252,13 @@ function DaySection({
                   isSelected={selectedId === id}
                   onSelect={() => onSelect(selectedId === id ? null : id)}
                   onSwap={
-                    onSwapActivity
-                      ? () => onSwapActivity(dayNumber, i)
+                    canSwap && onSwapActivity && a?.id
+                      ? () => {
+                          onSwapActivity(a.id as string);
+                        }
                       : undefined
                   }
+                  isSwapping={isSwapping}
                 />
               </li>
             );
@@ -273,13 +287,16 @@ function ActivityCard({
   isSelected,
   onSelect,
   onSwap,
+  isSwapping,
 }: {
   activity: PartialActivity | undefined;
   isSelected: boolean;
   onSelect: () => void;
   onSwap?: () => void;
+  isSwapping?: boolean;
 }) {
   if (!activity) return <ActivitySkeleton />;
+  if (isSwapping) return <ActivitySkeleton />;
 
   const hasCoords =
     typeof activity.latitude === "number" &&

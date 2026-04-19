@@ -21,6 +21,7 @@ export function tripRowToPartial(row: TripWithDays): PartialTrip {
     days: row.days.map((d) => ({
       dayNumber: d.dayNumber,
       activities: d.activities.map((a) => ({
+        id: a.id,
         name: a.name,
         description: a.description ?? undefined,
         type: mealTypeForIndex(a.orderIndex),

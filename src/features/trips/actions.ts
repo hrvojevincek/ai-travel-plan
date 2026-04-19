@@ -5,10 +5,15 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { getSession } from "@/features/auth";
 import { logAndFail } from "@/lib/action-error";
-import { createTrip, deleteTripForUser } from "./data";
-import { findPlaceMany } from "./find-place";
-import { GeneratedTripResponse, toCreateTripInput } from "./generate";
+import { createTrip, deleteTripForUser, getTrip, updateActivity } from "./data";
+import { findPlaceMany, findPlaceOne } from "./find-place";
+import {
+  type GeneratedActivityTypeT,
+  GeneratedTripResponse,
+  toCreateTripInput,
+} from "./generate";
 import { getDestinationImage } from "./image";
+import { swapActivity } from "./swap";
 
 export type SaveTripResult =
   | { ok: true; id: string }
@@ -119,4 +124,108 @@ export async function deleteTripAction(id: string): Promise<DeleteTripResult> {
   } catch (e) {
     return logAndFail("deleteTripAction", e);
   }
+}
+
+export interface SwappedActivity {
+  id: string;
+  name: string;
+  description: string | null;
+  type: GeneratedActivityTypeT;
+  durationMinutes: number | null;
+  address: string | null;
+  estimatedCost: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  placeId: string | null;
+  photoReference: string | null;
+}
+
+export type SwapActivityResult =
+  | { ok: true; activity: SwappedActivity }
+  | {
+      ok: false;
+      code: "UNAUTH" | "NOT_FOUND" | "FAILED";
+      message?: string;
+    };
+
+export async function swapActivityAction(
+  tripId: string,
+  activityId: string
+): Promise<SwapActivityResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, code: "UNAUTH" };
+  if (!tripId || !activityId) return { ok: false, code: "NOT_FOUND" };
+
+  const trip = await getTrip(db, tripId);
+  if (!trip || trip.userId !== session.user.id) {
+    return { ok: false, code: "NOT_FOUND" };
+  }
+  const exists = trip.days.some((d) =>
+    d.activities.some((a) => a.id === activityId)
+  );
+  if (!exists) return { ok: false, code: "NOT_FOUND" };
+
+  try {
+    const suggestion = await swapActivity(db, tripId, activityId);
+    const place = await findPlaceOne(`${suggestion.name}, ${trip.destination}`);
+
+    await updateActivity(db, activityId, {
+      name: suggestion.name,
+      description: suggestion.description,
+      // Preserve the existing enum type — swapActivity enforces it.
+      durationMinutes: suggestion.durationMinutes,
+      address: suggestion.address,
+      estimatedCost: suggestion.estimatedCost,
+      latitude: place?.latitude ?? null,
+      longitude: place?.longitude ?? null,
+      placeId: place?.placeId ?? null,
+      photoReference: place?.photoReference ?? null,
+    });
+
+    revalidatePath(`/trip/${tripId}`);
+
+    // `suggestion.type` is the narrow enum kept by swapActivity; expose the
+    // UI-facing type (breakfast/lunch/dinner/activity) so the client can
+    // pick the correct map glyph without reloading.
+    const uiType = inferUiType(trip, activityId);
+
+    return {
+      ok: true,
+      activity: {
+        id: activityId,
+        name: suggestion.name,
+        description: suggestion.description,
+        type: uiType,
+        durationMinutes: suggestion.durationMinutes,
+        address: suggestion.address,
+        estimatedCost: suggestion.estimatedCost,
+        latitude: place?.latitude ?? null,
+        longitude: place?.longitude ?? null,
+        placeId: place?.placeId ?? null,
+        photoReference: place?.photoReference ?? null,
+      },
+    };
+  } catch (e) {
+    return logAndFail("swapActivityAction", e);
+  }
+}
+
+/** The DB enum stores `food` / `other`; the UI wants breakfast/lunch/dinner/
+ *  activity. Derive from the slot position — the generator guarantees
+ *  0=breakfast, 3=lunch, 6=dinner, else activity. Matches adapt.ts. */
+function inferUiType(
+  trip: Awaited<ReturnType<typeof getTrip>>,
+  activityId: string
+): GeneratedActivityTypeT {
+  if (!trip) return "activity";
+  for (const day of trip.days) {
+    const a = day.activities.find((x) => x.id === activityId);
+    if (!a) continue;
+    const slot = a.orderIndex % 7;
+    if (slot === 0) return "breakfast";
+    if (slot === 3) return "lunch";
+    if (slot === 6) return "dinner";
+    return "activity";
+  }
+  return "activity";
 }
