@@ -7,8 +7,9 @@ import {
   Pin,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { MapPin } from "lucide-react";
+import { Camera, Coffee, MapPin, Utensils, Wine } from "lucide-react";
 import { useEffect, useMemo } from "react";
+import type { GeneratedActivityTypeT } from "@/features/trips/generate";
 import { getMapId } from "./api-provider";
 
 export interface MapActivity {
@@ -17,6 +18,8 @@ export interface MapActivity {
   latitude: number;
   longitude: number;
   dayNumber: number;
+  /** Activity category — drives the selected-pin glyph. */
+  type?: GeneratedActivityTypeT;
   /** Google Places photo reference — when present, InfoWindow lazy-loads it. */
   photoReference?: string | null;
 }
@@ -140,6 +143,25 @@ function buildPlacePhotoUrl(
   return url.toString();
 }
 
+const PIN_BG = "#2563eb";
+const PIN_BORDER = "#1e40af";
+
+const TYPE_ICON: Record<
+  GeneratedActivityTypeT,
+  React.ComponentType<{ className?: string }>
+> = {
+  breakfast: Coffee,
+  lunch: Utensils,
+  dinner: Wine,
+  activity: Camera,
+};
+
+/**
+ * Two visual tiers:
+ *  - unselected → small colored dot, recedes on a busy map
+ *  - selected   → full Pin with type glyph + day-number badge
+ * See KRE-34.
+ */
 function ActivityMarker({
   activity,
   isSelected,
@@ -149,18 +171,40 @@ function ActivityMarker({
   isSelected: boolean;
   onClick: () => void;
 }) {
+  const position = { lat: activity.latitude, lng: activity.longitude };
+
+  if (!isSelected) {
+    return (
+      <AdvancedMarker
+        position={position}
+        onClick={onClick}
+        title={activity.name}
+      >
+        <div
+          className="h-3 w-3 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125"
+          style={{ backgroundColor: PIN_BG }}
+        />
+      </AdvancedMarker>
+    );
+  }
+
+  const Glyph = activity.type ? TYPE_ICON[activity.type] : null;
+
   return (
-    <AdvancedMarker
-      position={{ lat: activity.latitude, lng: activity.longitude }}
-      onClick={onClick}
-      zIndex={isSelected ? 1000 : undefined}
-    >
-      <Pin
-        background={isSelected ? "#1d4ed8" : "#2563eb"}
-        borderColor={isSelected ? "#1e3a8a" : "#1e40af"}
-        glyphColor="#fff"
-        scale={isSelected ? 1.3 : 1.0}
-      />
+    <AdvancedMarker position={position} onClick={onClick} zIndex={1000}>
+      <div className="relative">
+        <Pin
+          background={PIN_BG}
+          borderColor={PIN_BORDER}
+          glyphColor="#fff"
+          scale={1.4}
+        >
+          {Glyph && <Glyph className="h-4 w-4 text-white" />}
+        </Pin>
+        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-primary px-1 text-[10px] font-bold leading-none text-white shadow">
+          {activity.dayNumber}
+        </span>
+      </div>
     </AdvancedMarker>
   );
 }

@@ -79,6 +79,7 @@ export function TripView({
           latitude: a.latitude,
           longitude: a.longitude,
           dayNumber: d.dayNumber ?? 0,
+          type: a.type,
           photoReference: a.photoReference ?? null,
         });
       }
