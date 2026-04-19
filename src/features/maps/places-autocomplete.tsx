@@ -30,6 +30,10 @@ interface PlacesAutocompleteProps {
   autoComplete?: string;
   id?: string;
   "aria-invalid"?: boolean;
+  /** Forward react-hook-form's field.onBlur so touched/dirty state works. */
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  /** Forward react-hook-form's field.ref so RHF can focus on validation fail. */
+  inputRef?: React.Ref<HTMLInputElement>;
 }
 
 /**
@@ -53,6 +57,8 @@ export function PlacesAutocomplete({
   autoComplete,
   id,
   "aria-invalid": ariaInvalid,
+  onBlur,
+  inputRef,
 }: PlacesAutocompleteProps) {
   const placesLib = useMapsLibrary("places");
   const {
@@ -137,20 +143,24 @@ export function PlacesAutocomplete({
       <Input
         id={id}
         name={name}
+        ref={inputRef}
         value={value}
         autoComplete={autoComplete}
         placeholder={placeholder}
-        disabled={disabled || !ready}
+        disabled={disabled}
         aria-invalid={ariaInvalid}
         className={className}
         onChange={(e) => {
           const v = e.target.value;
           onValueChange(v);
-          setValue(v);
+          // Only feed the autocomplete hook when its library has loaded;
+          // falls through to plain text input otherwise (documented contract).
+          if (ready) setValue(v);
           onClearPick();
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={onBlur}
       />
       {showDropdown && (
         <div
@@ -164,9 +174,13 @@ export function PlacesAutocomplete({
               type="button"
               role="option"
               aria-selected={false}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleSelect(s.description, s.place_id);
+              // onMouseDown just blocks the input blur that would otherwise
+              // close the dropdown before the click registers.
+              onMouseDown={(e) => e.preventDefault()}
+              // Selection goes on onClick so keyboard users (Enter/Space on a
+              // focused button) trigger the same path as mouse users.
+              onClick={() => {
+                void handleSelect(s.description, s.place_id);
               }}
               className={cn(
                 "flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"

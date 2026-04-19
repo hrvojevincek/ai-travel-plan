@@ -59,6 +59,8 @@ export function SearchForm() {
                   <PlacesAutocomplete
                     value={field.value}
                     onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    inputRef={field.ref}
                     onPick={(pick) => {
                       form.setValue("destination", pick.description);
                       form.setValue("placeId", pick.placeId);
