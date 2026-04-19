@@ -29,6 +29,13 @@
       "when": 1776596400285,
       "tag": "0003_generation_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776601509502,
+      "tag": "0004_activity_place_fields",
+      "breakpoints": true
     }
   ]
 }

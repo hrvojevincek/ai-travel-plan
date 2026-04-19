@@ -159,6 +159,12 @@ export const activity = pgTable(
     // address — we still persist the activity, it just renders without a pin.
     latitude: numeric("latitude", { precision: 9, scale: 6 }),
     longitude: numeric("longitude", { precision: 9, scale: 6 }),
+    // Google Places identifiers captured alongside coords (KRE-33). `place_id`
+    // lets us re-query Places later if needed; `photo_reference` powers the
+    // lazy InfoWindow image on click. Both nullable — not every activity has
+    // a photo, and legacy rows saved before KRE-33 won't have either.
+    placeId: text("place_id"),
+    photoReference: text("photo_reference"),
     orderIndex: integer("order_index").notNull(),
   },
   (table) => [

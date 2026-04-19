@@ -9,6 +9,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { MapPin } from "lucide-react";
 import { useEffect, useMemo } from "react";
+import { getMapId } from "./api-provider";
 
 export interface MapActivity {
   id: string;
@@ -16,6 +17,8 @@ export interface MapActivity {
   latitude: number;
   longitude: number;
   dayNumber: number;
+  /** Google Places photo reference — when present, InfoWindow lazy-loads it. */
+  photoReference?: string | null;
 }
 
 interface TripMapProps {
@@ -25,7 +28,7 @@ interface TripMapProps {
   activities: MapActivity[];
   selectedActivityId: string | null;
   onSelectActivity: (id: string | null) => void;
-  /** Map ID for styling. Optional. */
+  /** Map ID for styling and AdvancedMarker support. Defaults to env. */
   mapId?: string;
 }
 
@@ -36,7 +39,7 @@ export function TripMap({
   activities,
   selectedActivityId,
   onSelectActivity,
-  mapId,
+  mapId = getMapId(),
 }: TripMapProps) {
   const center = useMemo(() => {
     if (destinationLat != null && destinationLng != null) {
@@ -76,14 +79,7 @@ export function TripMap({
             pixelOffset={[0, -36]}
             onCloseClick={() => onSelectActivity(null)}
           >
-            <div className="px-1 py-0.5">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Day {selected.dayNumber}
-              </div>
-              <div className="text-sm font-semibold capitalize">
-                {selected.name.toLowerCase()}
-              </div>
-            </div>
+            <ActivityInfoContent activity={selected} />
           </InfoWindow>
         )}
       </GoogleMap>
@@ -97,6 +93,51 @@ export function TripMap({
       )}
     </div>
   );
+}
+
+function ActivityInfoContent({ activity }: { activity: MapActivity }) {
+  const photoUrl = buildPlacePhotoUrl(activity.photoReference);
+  return (
+    <div className="w-56 overflow-hidden">
+      {photoUrl && (
+        <img
+          src={photoUrl}
+          alt={activity.name}
+          loading="lazy"
+          className="mb-2 h-28 w-full rounded object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      )}
+      <div className="px-1 py-0.5">
+        <div className="text-xs uppercase tracking-wide text-zinc-500">
+          Day {activity.dayNumber}
+        </div>
+        <div className="text-sm font-semibold capitalize">
+          {activity.name.toLowerCase()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Constructs a Google Places Photo API URL from a stored `photo_reference`.
+ * The image is billed only when the browser actually fetches it (on click +
+ * InfoWindow mount), so we never pay for viewers who don't interact.
+ */
+function buildPlacePhotoUrl(
+  photoReference: string | null | undefined
+): string | null {
+  if (!photoReference) return null;
+  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
+  if (!key) return null;
+  const url = new URL("https://maps.googleapis.com/maps/api/place/photo");
+  url.searchParams.set("photoreference", photoReference);
+  url.searchParams.set("maxwidth", "400");
+  url.searchParams.set("key", key);
+  return url.toString();
 }
 
 function ActivityMarker({

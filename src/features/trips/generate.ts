@@ -37,13 +37,18 @@ export const GeneratedTrip = z.object({
 });
 export type GeneratedTripT = z.infer<typeof GeneratedTrip>;
 
-// Extends the AI-produced trip with server-geocoded coords on each activity.
-// Coords are nullish because geocoding can legitimately fail per-address and
-// because older callers (e.g. mock trip) don't carry them at all. Kept
-// separate from GeneratedTrip so the AI prompt isn't told to produce coords.
+// Extends the AI-produced trip with server-resolved place metadata on each
+// activity. All four fields are nullish because:
+//  - Places lookups can legitimately fail per-address,
+//  - older callers (e.g. mock trip) don't carry them at all,
+//  - not every place has a photo.
+// Kept separate from GeneratedTrip so the AI prompt isn't told to produce
+// coords/place_ids itself.
 export const GeneratedResponseActivity = GeneratedActivity.extend({
   latitude: z.number().min(-90).max(90).nullish(),
   longitude: z.number().min(-180).max(180).nullish(),
+  placeId: z.string().nullish(),
+  photoReference: z.string().nullish(),
 });
 export type GeneratedResponseActivityT = z.infer<
   typeof GeneratedResponseActivity
@@ -102,6 +107,9 @@ export function toCreateTripInput(
         estimatedCost: a.estimatedCost,
         latitude: "latitude" in a ? (a.latitude ?? null) : null,
         longitude: "longitude" in a ? (a.longitude ?? null) : null,
+        placeId: "placeId" in a ? (a.placeId ?? null) : null,
+        photoReference:
+          "photoReference" in a ? (a.photoReference ?? null) : null,
         orderIndex,
       })),
     })),

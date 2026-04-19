@@ -6,8 +6,8 @@ import { db } from "@/db/client";
 import { getSession } from "@/features/auth";
 import { logAndFail } from "@/lib/action-error";
 import { createTrip, deleteTripForUser } from "./data";
+import { findPlaceMany } from "./find-place";
 import { GeneratedTripResponse, toCreateTripInput } from "./generate";
-import { geocodeMany } from "./geocode";
 import { getDestinationImage } from "./image";
 
 export type SaveTripResult =
@@ -50,12 +50,12 @@ export async function saveTrip(
     input.destinationPlaceId = destinationPick.data.placeId;
   }
 
-  // Geocode only activities that were never attempted (e.g. mock trips that
+  // Look up only activities that were never attempted (e.g. mock trips that
   // skipped the generate endpoint). Activities that arrived from the cached
   // /api/trips/generate response already carry explicit `null` for failed
-  // geocodes — retrying those here would burn Geocoding quota on addresses we
+  // lookups — retrying those here would burn Places quota on addresses we
   // already know are bad. `undefined` means "never attempted"; `null` means
-  // "attempted and failed"; a number means "resolved".
+  // "attempted and failed"; a string/number means "resolved".
   const missing: { dayIdx: number; actIdx: number; query: string }[] = [];
   parsed.data.days.forEach((d, dayIdx) => {
     d.activities.forEach((a, actIdx) => {
@@ -69,14 +69,17 @@ export async function saveTrip(
     });
   });
   if (missing.length > 0) {
-    const coords = await geocodeMany(
+    const places = await findPlaceMany(
       missing.map((m) => ({ name: m.query, query: m.query }))
     );
     missing.forEach((m, i) => {
-      const c = coords[i];
-      if (c) {
-        input.days[m.dayIdx].activities[m.actIdx].latitude = c.latitude;
-        input.days[m.dayIdx].activities[m.actIdx].longitude = c.longitude;
+      const p = places[i];
+      if (p) {
+        const a = input.days[m.dayIdx].activities[m.actIdx];
+        a.latitude = p.latitude;
+        a.longitude = p.longitude;
+        a.placeId = p.placeId;
+        a.photoReference = p.photoReference;
       }
     });
   }
