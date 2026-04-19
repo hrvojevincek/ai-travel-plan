@@ -7,21 +7,24 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { saveTrip } from "@/features/trips/actions";
-import { GeneratedTrip, type GeneratedTripT } from "@/features/trips/generate";
+import {
+  GeneratedTripResponse,
+  type GeneratedTripResponseT,
+} from "@/features/trips/generate";
 import { mockTrip } from "@/features/trips/mock";
 import { TripView } from "@/features/trips/view";
 
 type GenState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; trip: GeneratedTripT }
+  | { status: "ready"; trip: GeneratedTripResponseT }
   | { status: "error"; message: string };
 
 async function fetchGeneratedTrip(input: {
   destination: string;
   duration: number;
   preferences?: string;
-}): Promise<GeneratedTripT> {
+}): Promise<GeneratedTripResponseT> {
   const res = await fetch("/api/trips/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -33,7 +36,7 @@ async function fetchGeneratedTrip(input: {
   if (!res.ok) {
     throw new Error(body.error ?? "Couldn't generate your trip.");
   }
-  const parsed = GeneratedTrip.safeParse(body);
+  const parsed = GeneratedTripResponse.safeParse(body);
   if (!parsed.success) {
     throw new Error("Trip came back in an unexpected format.");
   }
@@ -70,7 +73,7 @@ export function TripNewClient() {
 
   const [state, setState] = useState<GenState>(() =>
     mock
-      ? { status: "ready", trip: mockTrip as GeneratedTripT }
+      ? { status: "ready", trip: mockTrip as GeneratedTripResponseT }
       : { status: "idle" }
   );
 
@@ -103,7 +106,7 @@ export function TripNewClient() {
   const canSave = state.status === "ready" && !isSaving;
 
   const runSave = useCallback(
-    (data: GeneratedTripT) => {
+    (data: GeneratedTripResponseT) => {
       startSaving(async () => {
         const destinationPick =
           placeId && destinationLat != null && destinationLng != null

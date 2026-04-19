@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { generateTrip } from "@/features/trips/generate";
+import { db } from "@/db/client";
+import { readCache, writeCache } from "@/features/trips/cache";
+import {
+  type GeneratedTripResponseT,
+  generateTrip,
+} from "@/features/trips/generate";
+import { geocodeMany } from "@/features/trips/geocode";
 import { checkTripGenerateLimit, clientIp } from "@/lib/rate-limit";
 
 // Node serverless runtime. Without streaming we don't need Edge's long-lived
@@ -15,7 +21,9 @@ const Body = z.object({
 
 // Endpoint is intentionally unauthenticated per KRE-16/KRE-17 (unauth users can
 // generate; auth is prompted at save time). Rate-limited per-IP via Upstash
-// to cap OpenAI spend — see `lib/rate-limit`.
+// to cap OpenAI spend — see `lib/rate-limit`. AI+Geocoding results are cached
+// by normalized (destination, duration, preferences) so duplicate inputs are
+// served from the DB — see `features/trips/cache` (KRE-32).
 export async function POST(req: Request) {
   const ip = clientIp(req.headers);
   const rl = await checkTripGenerateLimit(ip);
@@ -50,12 +58,53 @@ export async function POST(req: Request) {
   }
 
   try {
+    const cached = await readCache(db, parsed.data).catch((e) => {
+      console.warn("[trips/generate] cache read failed, passing through:", e);
+      return null;
+    });
+    if (cached) {
+      return Response.json(cached);
+    }
+
     const trip = await generateTrip(parsed.data);
-    return Response.json(trip);
+    const response = await attachCoords(trip);
+
+    writeCache(db, parsed.data, response).catch((e) => {
+      console.warn("[trips/generate] cache write failed:", e);
+    });
+
+    return Response.json(response);
   } catch (error) {
     console.error("[trips/generate] failed:", error);
     return Response.json({ error: friendlyMessage(error) }, { status: 502 });
   }
+}
+
+async function attachCoords(
+  trip: Awaited<ReturnType<typeof generateTrip>>
+): Promise<GeneratedTripResponseT> {
+  const requests = trip.days.flatMap((d) =>
+    d.activities.map((a) => ({
+      name: a.name,
+      query: `${a.name}, ${trip.destination}`,
+    }))
+  );
+  const coords = await geocodeMany(requests);
+  let i = 0;
+  return {
+    ...trip,
+    days: trip.days.map((d) => ({
+      dayNumber: d.dayNumber,
+      activities: d.activities.map((a) => {
+        const c = coords[i++];
+        return {
+          ...a,
+          latitude: c?.latitude ?? null,
+          longitude: c?.longitude ?? null,
+        };
+      }),
+    })),
+  };
 }
 
 function friendlyMessage(error: unknown): string {

@@ -37,6 +37,32 @@ export const GeneratedTrip = z.object({
 });
 export type GeneratedTripT = z.infer<typeof GeneratedTrip>;
 
+// Extends the AI-produced trip with server-geocoded coords on each activity.
+// Coords are nullish because geocoding can legitimately fail per-address and
+// because older callers (e.g. mock trip) don't carry them at all. Kept
+// separate from GeneratedTrip so the AI prompt isn't told to produce coords.
+export const GeneratedResponseActivity = GeneratedActivity.extend({
+  latitude: z.number().min(-90).max(90).nullish(),
+  longitude: z.number().min(-180).max(180).nullish(),
+});
+export type GeneratedResponseActivityT = z.infer<
+  typeof GeneratedResponseActivity
+>;
+
+export const GeneratedResponseDay = z.object({
+  dayNumber: z.number().int().min(1),
+  activities: z.array(GeneratedResponseActivity).length(ACTIVITIES_PER_DAY),
+});
+export type GeneratedResponseDayT = z.infer<typeof GeneratedResponseDay>;
+
+export const GeneratedTripResponse = z.object({
+  destination: z.string().min(1),
+  summary: z.string().min(1),
+  totalEstimatedCost: z.number().nonnegative(),
+  days: z.array(GeneratedResponseDay).min(1),
+});
+export type GeneratedTripResponseT = z.infer<typeof GeneratedTripResponse>;
+
 export interface GenerateTripOpts {
   destination: string;
   duration: number;
@@ -56,7 +82,9 @@ export async function generateTrip(
   return object;
 }
 
-export function toCreateTripInput(g: GeneratedTripT): CreateTripInputT {
+export function toCreateTripInput(
+  g: GeneratedTripT | GeneratedTripResponseT
+): CreateTripInputT {
   return {
     destination: g.destination,
     summary: g.summary,
@@ -72,6 +100,8 @@ export function toCreateTripInput(g: GeneratedTripT): CreateTripInputT {
         durationMinutes: a.durationMinutes,
         address: a.address,
         estimatedCost: a.estimatedCost,
+        latitude: "latitude" in a ? a.latitude : null,
+        longitude: "longitude" in a ? a.longitude : null,
         orderIndex,
       })),
     })),
