@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import { buildCacheKey, readCache, writeCache } from "@/features/trips/cache";
+import { findPlaceMany } from "@/features/trips/find-place";
 import {
   type GeneratedTripResponseT,
   generateTrip,
 } from "@/features/trips/generate";
-import { geocodeMany } from "@/features/trips/geocode";
 import { checkTripGenerateLimit, clientIp } from "@/lib/rate-limit";
 
 // Node serverless runtime. Without streaming we don't need Edge's long-lived
@@ -103,9 +103,9 @@ export async function POST(req: Request) {
   }
 }
 
-// Geocodes every activity in the trip, returning a response with per-activity
-// coords. Geocoder failures degrade gracefully — we still return the trip with
-// the failed entries marked `null` so pins just don't render for them.
+// Looks every activity up in Google Places Find Place — one call yields
+// coords + place_id + first photo reference. Failures degrade gracefully:
+// we still return the trip with null fields so pins/photos just don't render.
 async function attachCoords(
   trip: Awaited<ReturnType<typeof generateTrip>>
 ): Promise<GeneratedTripResponseT> {
@@ -115,15 +115,15 @@ async function attachCoords(
       query: `${a.name}, ${trip.destination}`,
     }))
   );
-  let coords: Awaited<ReturnType<typeof geocodeMany>>;
+  let places: Awaited<ReturnType<typeof findPlaceMany>>;
   try {
-    coords = await geocodeMany(requests);
+    places = await findPlaceMany(requests);
   } catch (e) {
     console.warn(
-      "[trips/generate] geocodeMany threw; returning trip without coords:",
+      "[trips/generate] findPlaceMany threw; returning trip without place data:",
       e instanceof Error ? e.message : e
     );
-    coords = requests.map(() => null);
+    places = requests.map(() => null);
   }
   let i = 0;
   return {
@@ -131,11 +131,13 @@ async function attachCoords(
     days: trip.days.map((d) => ({
       dayNumber: d.dayNumber,
       activities: d.activities.map((a) => {
-        const c = coords[i++];
+        const p = places[i++];
         return {
           ...a,
-          latitude: c?.latitude ?? null,
-          longitude: c?.longitude ?? null,
+          latitude: p?.latitude ?? null,
+          longitude: p?.longitude ?? null,
+          placeId: p?.placeId ?? null,
+          photoReference: p?.photoReference ?? null,
         };
       }),
     })),

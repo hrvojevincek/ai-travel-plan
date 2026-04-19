@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { geocodeMany, geocodeOne } from "./geocode";
+import { findPlaceMany, findPlaceOne } from "./find-place";
 
 const originalEnv = { ...process.env };
 
@@ -16,7 +16,7 @@ function fetchResponding(
   ) as unknown as typeof fetch;
 }
 
-describe("geocodeOne", () => {
+describe("findPlaceOne", () => {
   beforeEach(() => {
     process.env.GOOGLE_MAPS_SERVER_KEY = "test-key";
   });
@@ -26,28 +26,58 @@ describe("geocodeOne", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns lat/lng from the first result on OK", async () => {
+  it("returns lat/lng, placeId, and photoReference from the first candidate on OK", async () => {
     const fetcher = fetchResponding({
       status: "OK",
-      results: [{ geometry: { location: { lat: 38.7223, lng: -9.1393 } } }],
+      candidates: [
+        {
+          place_id: "ChIJ_Test_01",
+          geometry: { location: { lat: 38.7, lng: -9.14 } },
+          photos: [{ photo_reference: "CmR_Photo_01" }],
+        },
+      ],
     });
-    const result = await geocodeOne("Tram 28, Lisbon", fetcher);
-    expect(result).toEqual({ latitude: 38.7223, longitude: -9.1393 });
+    const result = await findPlaceOne("Pastéis de Belém, Lisbon", fetcher);
+    expect(result).toEqual({
+      latitude: 38.7,
+      longitude: -9.14,
+      placeId: "ChIJ_Test_01",
+      photoReference: "CmR_Photo_01",
+    });
+  });
+
+  it("returns null photoReference when candidate has no photos", async () => {
+    const fetcher = fetchResponding({
+      status: "OK",
+      candidates: [
+        {
+          place_id: "ChIJ_Test_NoPhoto",
+          geometry: { location: { lat: 1, lng: 2 } },
+        },
+      ],
+    });
+    const r = await findPlaceOne("Obscure landmark", fetcher);
+    expect(r).toEqual({
+      latitude: 1,
+      longitude: 2,
+      placeId: "ChIJ_Test_NoPhoto",
+      photoReference: null,
+    });
   });
 
   it("returns null on ZERO_RESULTS", async () => {
-    const fetcher = fetchResponding({ status: "ZERO_RESULTS", results: [] });
-    expect(await geocodeOne("not-a-real-place-xyz", fetcher)).toBeNull();
+    const fetcher = fetchResponding({ status: "ZERO_RESULTS", candidates: [] });
+    expect(await findPlaceOne("not-a-real-place-xyz", fetcher)).toBeNull();
   });
 
   it("returns null on OVER_QUERY_LIMIT without throwing", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetcher = fetchResponding({
       status: "OVER_QUERY_LIMIT",
-      results: [],
+      candidates: [],
       error_message: "quota",
     });
-    expect(await geocodeOne("anything", fetcher)).toBeNull();
+    expect(await findPlaceOne("anything", fetcher)).toBeNull();
     expect(warnSpy).toHaveBeenCalled();
   });
 
@@ -55,20 +85,18 @@ describe("geocodeOne", () => {
     const fetcher = vi
       .fn()
       .mockRejectedValue(new Error("ECONNREFUSED")) as unknown as typeof fetch;
-    expect(await geocodeOne("anything", fetcher)).toBeNull();
+    expect(await findPlaceOne("anything", fetcher)).toBeNull();
   });
 
   it("returns null on non-2xx HTTP status", async () => {
     const fetcher = fetchResponding({}, { status: 500 });
-    expect(await geocodeOne("anything", fetcher)).toBeNull();
+    expect(await findPlaceOne("anything", fetcher)).toBeNull();
   });
 
   it("aborts a slow request after the timeout and returns null", async () => {
     vi.useFakeTimers();
     try {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      // Fetcher that resolves only when its signal aborts — mirrors how
-      // real fetch surfaces an AbortError.
       const fetcher = vi.fn(
         (_url: string | URL, init?: RequestInit) =>
           new Promise<Response>((_, reject) => {
@@ -80,8 +108,7 @@ describe("geocodeOne", () => {
           })
       ) as unknown as typeof fetch;
 
-      const pending = geocodeOne("Tram 28, Lisbon", fetcher);
-      // Advance past the 5s timeout so the internal setTimeout fires.
+      const pending = findPlaceOne("Somewhere", fetcher);
       await vi.advanceTimersByTimeAsync(6_000);
 
       await expect(pending).resolves.toBeNull();
@@ -96,18 +123,31 @@ describe("geocodeOne", () => {
   it("returns null when GOOGLE_MAPS_SERVER_KEY is not set", async () => {
     process.env.GOOGLE_MAPS_SERVER_KEY = "";
     const fetcher = vi.fn() as unknown as typeof fetch;
-    expect(await geocodeOne("anything", fetcher)).toBeNull();
+    expect(await findPlaceOne("anything", fetcher)).toBeNull();
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("returns null when query is whitespace", async () => {
+  it("returns null on whitespace query", async () => {
     const fetcher = vi.fn() as unknown as typeof fetch;
-    expect(await geocodeOne("   ", fetcher)).toBeNull();
+    expect(await findPlaceOne("   ", fetcher)).toBeNull();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("requests the right fields so photos come back", async () => {
+    const calls: string[] = [];
+    const fetcher = vi.fn(async (url: string | URL | Request) => {
+      calls.push(url.toString());
+      return new Response(JSON.stringify({ status: "OK", candidates: [] }), {
+        status: 200,
+      });
+    }) as unknown as typeof fetch;
+    await findPlaceOne("Eiffel Tower, Paris", fetcher);
+    expect(calls[0]).toContain("fields=place_id%2Cgeometry%2Cphotos");
+    expect(calls[0]).toContain("inputtype=textquery");
   });
 });
 
-describe("geocodeMany", () => {
+describe("findPlaceMany", () => {
   beforeEach(() => {
     process.env.GOOGLE_MAPS_SERVER_KEY = "test-key";
   });
@@ -117,35 +157,39 @@ describe("geocodeMany", () => {
   });
 
   it("preserves input order and fires requests in parallel", async () => {
+    const DELAY_MS = 30;
     const startTimes: Record<string, number> = {};
     const endTimes: Record<string, number> = {};
-    const DELAY_MS = 30;
-    const coords: Record<string, { lat: number; lng: number }> = {
-      a: { lat: 1, lng: 1 },
-      b: { lat: 2, lng: 2 },
-      c: { lat: 3, lng: 3 },
+    const fixtures: Record<
+      string,
+      { lat: number; lng: number; place_id: string }
+    > = {
+      a: { lat: 1, lng: 1, place_id: "pid-a" },
+      b: { lat: 2, lng: 2, place_id: "pid-b" },
+      c: { lat: 3, lng: 3, place_id: "pid-c" },
     };
-
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = input.toString();
-      const addr = decodeURIComponent(
-        /[?&]address=([^&]+)/.exec(url)?.[1] ?? ""
-      );
-      startTimes[addr] = Date.now();
-      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-      endTimes[addr] = Date.now();
+      const q = decodeURIComponent(/[?&]input=([^&]+)/.exec(url)?.[1] ?? "");
+      startTimes[q] = Date.now();
+      await new Promise((r) => setTimeout(r, DELAY_MS));
+      endTimes[q] = Date.now();
+      const f = fixtures[q] ?? fixtures.a;
       return new Response(
         JSON.stringify({
           status: "OK",
-          results: [
-            { geometry: { location: coords[addr] ?? coords.a } },
+          candidates: [
+            {
+              place_id: f.place_id,
+              geometry: { location: { lat: f.lat, lng: f.lng } },
+            },
           ],
         }),
         { status: 200 }
       );
     }) as unknown as typeof fetch;
 
-    const out = await geocodeMany(
+    const out = await findPlaceMany(
       [
         { name: "A", query: "a" },
         { name: "B", query: "b" },
@@ -154,43 +198,40 @@ describe("geocodeMany", () => {
       fetcher
     );
 
-    expect(out).toEqual([
-      { latitude: 1, longitude: 1 },
-      { latitude: 2, longitude: 2 },
-      { latitude: 3, longitude: 3 },
-    ]);
-
-    // Concurrency proof: later requests started before earlier ones
-    // completed. Would fail under sequential `for..of await`.
+    expect(out.map((r) => r?.placeId)).toEqual(["pid-a", "pid-b", "pid-c"]);
     expect(startTimes.b).toBeLessThan(endTimes.a);
-    expect(startTimes.c).toBeLessThan(endTimes.a);
     expect(startTimes.c).toBeLessThan(endTimes.b);
   });
 
   it("keeps a null slot for individual failures without breaking siblings", async () => {
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = input.toString();
-      const addr = /[?&]address=([^&]+)/.exec(url)?.[1] ?? "";
-      if (addr === "bad") {
+      const q = /[?&]input=([^&]+)/.exec(url)?.[1] ?? "";
+      if (q === "bad") {
         return new Response(
-          JSON.stringify({ status: "ZERO_RESULTS", results: [] }),
+          JSON.stringify({ status: "ZERO_RESULTS", candidates: [] }),
           { status: 200 }
         );
       }
       return new Response(
         JSON.stringify({
           status: "OK",
-          results: [{ geometry: { location: { lat: 1, lng: 1 } } }],
+          candidates: [
+            {
+              place_id: "pid",
+              geometry: { location: { lat: 1, lng: 1 } },
+            },
+          ],
         }),
         { status: 200 }
       );
     }) as unknown as typeof fetch;
 
-    const out = await geocodeMany(
+    const out = await findPlaceMany(
       [
         { name: "good", query: "good" },
         { name: "bad", query: "bad" },
-        { name: "also good", query: "good2" },
+        { name: "also", query: "also" },
       ],
       fetcher
     );

@@ -15,6 +15,8 @@ type PartialActivity = Partial<
 > & {
   latitude?: number | null;
   longitude?: number | null;
+  placeId?: string | null;
+  photoReference?: string | null;
 };
 type PartialDay = Partial<
   Omit<GeneratedTripT["days"][number], "activities">
@@ -77,6 +79,7 @@ export function TripView({
           latitude: a.latitude,
           longitude: a.longitude,
           dayNumber: d.dayNumber ?? 0,
+          photoReference: a.photoReference ?? null,
         });
       }
     });

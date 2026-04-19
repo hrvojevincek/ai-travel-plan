@@ -23,6 +23,8 @@ export const ActivityInput = z.object({
   estimatedCost: z.number().nonnegative().nullish(),
   latitude: LatitudeSchema.nullish(),
   longitude: LongitudeSchema.nullish(),
+  placeId: z.string().nullish(),
+  photoReference: z.string().nullish(),
   orderIndex: z.number().int().min(0),
 });
 export type ActivityInputT = z.infer<typeof ActivityInput>;

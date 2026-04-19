@@ -1,4 +1,4 @@
-export { hasMapsApiKey, MapsApiProvider } from "./api-provider";
+export { getMapId, hasMapsApiKey, MapsApiProvider } from "./api-provider";
 export {
   type DestinationPick,
   PlacesAutocomplete,

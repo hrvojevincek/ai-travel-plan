@@ -60,6 +60,8 @@ export async function createTrip(
             a.estimatedCost != null ? a.estimatedCost.toFixed(2) : null,
           latitude: a.latitude != null ? a.latitude.toFixed(6) : null,
           longitude: a.longitude != null ? a.longitude.toFixed(6) : null,
+          placeId: a.placeId ?? null,
+          photoReference: a.photoReference ?? null,
           orderIndex: a.orderIndex,
         }))
       );
