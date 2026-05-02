@@ -58,8 +58,9 @@ function hasValidSignature({
 }): boolean {
   const payload = `${photoReference}|${ts}`;
   const expected = createHmac("sha256", secret).update(payload).digest("hex");
-  const actualBuf = Buffer.from(sig, "utf8");
-  const expectedBuf = Buffer.from(expected, "utf8");
+  if (!/^[a-f0-9]{64}$/i.test(sig)) return false;
+  const actualBuf = Buffer.from(sig, "hex");
+  const expectedBuf = Buffer.from(expected, "hex");
   if (actualBuf.length !== expectedBuf.length) return false;
   return timingSafeEqual(actualBuf, expectedBuf);
 }
