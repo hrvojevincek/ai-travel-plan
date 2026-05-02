@@ -6,12 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { fetchGeneratedTrip } from "@/features/trips/generate-client";
 import { saveTrip } from "@/features/trips/actions";
 import {
-  GeneratedTripResponse,
   type GeneratedTripResponseT,
 } from "@/features/trips/generate";
 import { mockTrip } from "@/features/trips/mock";
+import { takePrefetchedTrip } from "@/features/trips/prefetch-cache";
 import { TripView } from "@/features/trips/view";
 
 type GenState =
@@ -19,29 +20,6 @@ type GenState =
   | { status: "loading" }
   | { status: "ready"; trip: GeneratedTripResponseT }
   | { status: "error"; message: string };
-
-async function fetchGeneratedTrip(input: {
-  destination: string;
-  duration: number;
-  preferences?: string;
-}): Promise<GeneratedTripResponseT> {
-  const res = await fetch("/api/trips/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  const body = (await res.json().catch(() => ({}))) as {
-    error?: string;
-  } & Record<string, unknown>;
-  if (!res.ok) {
-    throw new Error(body.error ?? "Couldn't generate your trip.");
-  }
-  const parsed = GeneratedTripResponse.safeParse(body);
-  if (!parsed.success) {
-    throw new Error("Trip came back in an unexpected format.");
-  }
-  return parsed.data;
-}
 
 function parseNumericParam(
   value: string | null,
@@ -71,13 +49,19 @@ export function TripNewClient() {
   const [isSaving, startSaving] = useTransition();
   const autoSaveFired = useRef(false);
 
-  const [state, setState] = useState<GenState>(() =>
-    mock
-      ? { status: "ready", trip: mockTrip as GeneratedTripResponseT }
-      : { status: "idle" }
-  );
+  const [state, setState] = useState<GenState>(() => {
+    if (mock) return { status: "ready", trip: mockTrip as GeneratedTripResponseT };
+    const prefetchedTrip = takePrefetchedTrip({
+      destination,
+      duration,
+      preferences,
+    });
+    return prefetchedTrip
+      ? { status: "ready", trip: prefetchedTrip }
+      : { status: "idle" };
+  });
 
-  const didSubmit = useRef(false);
+  const didSubmit = useRef(state.status === "ready");
   const generate = useCallback(async () => {
     if (!destination) return;
     setState({ status: "loading" });

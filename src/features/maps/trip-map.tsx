@@ -91,7 +91,7 @@ export function TripMap({
             pixelOffset={[0, -64]}
             onCloseClick={() => onSelectActivity(null)}
           >
-            <ActivityInfoContent activity={selected} />
+            <ActivityInfoContent key={selected.id} activity={selected} />
           </InfoWindow>
         )}
       </GoogleMap>
@@ -108,9 +108,39 @@ export function TripMap({
 }
 
 function ActivityInfoContent({ activity }: { activity: MapActivity }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const photoUrl = buildPlacePhotoUrl(activity.photoReference);
-  const showPhoto = Boolean(photoUrl && !imageFailed);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const showPhoto = Boolean(photoUrl && failedUrl !== photoUrl);
+
+  useEffect(() => {
+    if (!activity.photoReference) return;
+
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      photoReference: activity.photoReference,
+    });
+
+    fetch(`/api/maps/photo-sign?${params.toString()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`sign failed: ${res.status}`);
+        return (await res.json()) as { ts?: string; sig?: string };
+      })
+      .then(({ ts, sig }) => {
+        if (!ts || !sig) {
+          setPhotoUrl(null);
+          return;
+        }
+        setPhotoUrl(buildPlacePhotoUrl(activity.photoReference, ts, sig));
+      })
+      .catch(() => {
+        setPhotoUrl(null);
+      });
+
+    return () => controller.abort();
+  }, [activity.photoReference]);
 
   return (
     <div className="w-56 overflow-hidden">
@@ -122,7 +152,7 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
           alt={activity.name}
           loading="lazy"
           className="mb-2 h-28 w-full rounded object-cover"
-          onError={() => setImageFailed(true)}
+          onError={() => setFailedUrl(photoUrl)}
         />
       ) : (
         <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-zinc-100 text-zinc-500">
@@ -150,11 +180,15 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
  * InfoWindow mount), so we never pay for viewers who don't interact.
  */
 function buildPlacePhotoUrl(
-  photoReference: string | null | undefined
+  photoReference: string | null | undefined,
+  ts: string,
+  sig: string
 ): string | null {
   if (!photoReference) return null;
   const params = new URLSearchParams({
     photoReference,
+    ts,
+    sig,
     maxwidth: "400",
   });
   return `/api/maps/photo?${params.toString()}`;
