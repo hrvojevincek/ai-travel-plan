@@ -7,8 +7,15 @@ import {
   Pin,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { Camera, Coffee, MapPin, Utensils, Wine } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import {
+  Camera,
+  CameraOff,
+  Coffee,
+  MapPin,
+  Utensils,
+  Wine,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { GeneratedActivityTypeT } from "@/features/trips/generate";
 import { getMapId } from "./api-provider";
 
@@ -84,12 +91,12 @@ export function TripMap({
             pixelOffset={[0, -64]}
             onCloseClick={() => onSelectActivity(null)}
           >
-            <ActivityInfoContent activity={selected} />
+            <ActivityInfoContent key={selected.id} activity={selected} />
           </InfoWindow>
         )}
       </GoogleMap>
       {activities.length === 0 && destination && (
-        <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 text-xs text-zinc-700 shadow-sm">
+        <div className="pointer-events-none absolute top-3 left-3 rounded-md bg-white/90 px-2 py-1 text-xs text-zinc-700 shadow-sm">
           <span className="inline-flex items-center gap-1">
             <MapPin className="h-3 w-3" />
             {destination}
@@ -101,22 +108,62 @@ export function TripMap({
 }
 
 function ActivityInfoContent({ activity }: { activity: MapActivity }) {
-  const photoUrl = buildPlacePhotoUrl(activity.photoReference);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const showPhoto = Boolean(photoUrl && failedUrl !== photoUrl);
+
+  useEffect(() => {
+    if (!activity.photoReference) return;
+
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      photoReference: activity.photoReference,
+    });
+
+    fetch(`/api/maps/photo-sign?${params.toString()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`sign failed: ${res.status}`);
+        return (await res.json()) as { ts?: string; sig?: string };
+      })
+      .then(({ ts, sig }) => {
+        if (!ts || !sig) {
+          setPhotoUrl(null);
+          return;
+        }
+        setPhotoUrl(buildPlacePhotoUrl(activity.photoReference, ts, sig));
+      })
+      .catch(() => {
+        setPhotoUrl(null);
+      });
+
+    return () => controller.abort();
+  }, [activity.photoReference]);
+
   return (
     <div className="w-56 overflow-hidden">
-      {photoUrl && (
+      {showPhoto ? (
+        // Google InfoWindow content does not need Next/Image optimization here.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={photoUrl}
+          src={photoUrl ?? undefined}
           alt={activity.name}
           loading="lazy"
           className="mb-2 h-28 w-full rounded object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-          }}
+          onError={() => setFailedUrl(photoUrl)}
         />
+      ) : (
+        <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-zinc-100 text-zinc-500">
+          <span className="inline-flex items-center gap-1 text-xs font-medium">
+            <CameraOff className="h-3.5 w-3.5" />
+            No photo available
+          </span>
+        </div>
       )}
       <div className="px-1 py-0.5">
-        <div className="text-xs uppercase tracking-wide text-zinc-500">
+        <div className="text-xs tracking-wide text-zinc-500 uppercase">
           Day {activity.dayNumber}
         </div>
         <div className="text-sm font-semibold capitalize">
@@ -133,16 +180,18 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
  * InfoWindow mount), so we never pay for viewers who don't interact.
  */
 function buildPlacePhotoUrl(
-  photoReference: string | null | undefined
+  photoReference: string | null | undefined,
+  ts: string,
+  sig: string
 ): string | null {
   if (!photoReference) return null;
-  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
-  if (!key) return null;
-  const url = new URL("https://maps.googleapis.com/maps/api/place/photo");
-  url.searchParams.set("photoreference", photoReference);
-  url.searchParams.set("maxwidth", "400");
-  url.searchParams.set("key", key);
-  return url.toString();
+  const params = new URLSearchParams({
+    photoReference,
+    ts,
+    sig,
+    maxwidth: "400",
+  });
+  return `/api/maps/photo?${params.toString()}`;
 }
 
 const PIN_BG = "#2563eb";
@@ -203,7 +252,7 @@ function ActivityMarker({
         >
           {Glyph && <Glyph className="h-4 w-4 text-white" />}
         </Pin>
-        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-primary px-1 text-[10px] font-bold leading-none text-white shadow">
+        <span className="bg-primary absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white px-1 text-[10px] leading-none font-bold text-white shadow">
           {activity.dayNumber}
         </span>
       </div>
