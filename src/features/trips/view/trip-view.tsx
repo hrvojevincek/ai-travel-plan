@@ -3,9 +3,10 @@
 import { Clock, MapPin, RefreshCw, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasMapsApiKey, type MapActivity, TripMap } from "@/features/maps";
 import { cn } from "@/lib/utils";
 import type { GeneratedActivityTypeT, GeneratedTripT } from "../generate";
@@ -66,6 +67,11 @@ export function TripView({
   const dayPlaceholders = Array.from({ length: expectedDays }, (_, i) => i + 1);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number>(1);
+
+  useEffect(() => {
+    setSelectedDay((prev) => Math.min(Math.max(prev, 1), expectedDays));
+  }, [expectedDays]);
 
   const mapActivities: MapActivity[] = [];
   for (const d of days) {
@@ -110,22 +116,44 @@ export function TripView({
           duration={expectedDays}
         />
 
-        <div className="mt-10 space-y-10">
+        <Tabs
+          value={String(selectedDay)}
+          onValueChange={(value) => {
+            setSelectedDay(Number(value));
+            setSelectedId(null);
+          }}
+          className="mt-10 gap-4"
+        >
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="h-auto w-max min-w-full justify-start gap-1 rounded-xl bg-zinc-100 p-1">
+              {dayPlaceholders.map((dayNum) => (
+                <TabsTrigger
+                  key={dayNum}
+                  value={String(dayNum)}
+                  className="px-4 py-2 text-sm font-semibold"
+                >
+                  Day {dayNum}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
           {dayPlaceholders.map((dayNum) => {
             const day = days.find((d) => d?.dayNumber === dayNum);
             return (
-              <DaySection
-                key={dayNum}
-                dayNumber={dayNum}
-                activities={day?.activities}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onSwapActivity={onSwapActivity}
-                swappingActivityId={swappingActivityId}
-              />
+              <TabsContent key={dayNum} value={String(dayNum)} className="mt-0">
+                <DaySection
+                  dayNumber={dayNum}
+                  activities={day?.activities}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onSwapActivity={onSwapActivity}
+                  swappingActivityId={swappingActivityId}
+                />
+              </TabsContent>
             );
           })}
-        </div>
+        </Tabs>
       </aside>
 
       <section className="relative flex-1 bg-muted/30 sm:sticky sm:top-0 sm:h-screen">
