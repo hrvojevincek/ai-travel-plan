@@ -37,7 +37,6 @@ function readPrefetchedTrip(input: {
   try {
     const raw = window.sessionStorage.getItem(PREFETCH_STORAGE_KEY);
     if (!raw) return null;
-
     const parsed = JSON.parse(raw) as PrefetchedTripPayload;
     const trip = GeneratedTripResponse.safeParse(parsed.trip);
     if (!trip.success) return null;

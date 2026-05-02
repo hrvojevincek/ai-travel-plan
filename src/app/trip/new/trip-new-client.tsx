@@ -65,7 +65,6 @@ export function TripNewClient() {
   });
 
   const didSubmit = useRef(state.status === "ready");
-
   useEffect(() => {
     if (mock) return;
     const prefetchedTrip = takePrefetchedTrip({
