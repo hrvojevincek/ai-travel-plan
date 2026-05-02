@@ -20,22 +20,24 @@ function normalizePreferences(preferences: string | undefined): string | undefin
 
 export function savePrefetchedTrip(payload: PrefetchedTripPayload): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(PREFETCH_STORAGE_KEY, JSON.stringify(payload));
+  try {
+    window.sessionStorage.setItem(PREFETCH_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn(`Failed to cache prefetched trip in ${PREFETCH_STORAGE_KEY}.`, error);
+  }
 }
 
-export function takePrefetchedTrip(input: {
+function readPrefetchedTrip(input: {
   destination: string;
   duration: number;
   preferences?: string;
 }): GeneratedTripResponseT | null {
   if (typeof window === "undefined") return null;
 
-  const raw = window.sessionStorage.getItem(PREFETCH_STORAGE_KEY);
-  if (!raw) return null;
-
-  window.sessionStorage.removeItem(PREFETCH_STORAGE_KEY);
-
   try {
+    const raw = window.sessionStorage.getItem(PREFETCH_STORAGE_KEY);
+    if (!raw) return null;
+
     const parsed = JSON.parse(raw) as PrefetchedTripPayload;
     const trip = GeneratedTripResponse.safeParse(parsed.trip);
     if (!trip.success) return null;
@@ -51,6 +53,29 @@ export function takePrefetchedTrip(input: {
     }
 
     return trip.data;
+  } catch {
+    return null;
+  }
+}
+
+export function peekPrefetchedTrip(input: {
+  destination: string;
+  duration: number;
+  preferences?: string;
+}): GeneratedTripResponseT | null {
+  return readPrefetchedTrip(input);
+}
+
+export function takePrefetchedTrip(input: {
+  destination: string;
+  duration: number;
+  preferences?: string;
+}): GeneratedTripResponseT | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const trip = readPrefetchedTrip(input);
+    window.sessionStorage.removeItem(PREFETCH_STORAGE_KEY);
+    return trip;
   } catch {
     return null;
   }
