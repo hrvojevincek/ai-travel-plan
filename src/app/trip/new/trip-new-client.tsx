@@ -12,7 +12,10 @@ import {
   type GeneratedTripResponseT,
 } from "@/features/trips/generate";
 import { mockTrip } from "@/features/trips/mock";
-import { takePrefetchedTrip } from "@/features/trips/prefetch-cache";
+import {
+  peekPrefetchedTrip,
+  takePrefetchedTrip,
+} from "@/features/trips/prefetch-cache";
 import { TripView } from "@/features/trips/view";
 
 type GenState =
@@ -51,7 +54,7 @@ export function TripNewClient() {
 
   const [state, setState] = useState<GenState>(() => {
     if (mock) return { status: "ready", trip: mockTrip as GeneratedTripResponseT };
-    const prefetchedTrip = takePrefetchedTrip({
+    const prefetchedTrip = peekPrefetchedTrip({
       destination,
       duration,
       preferences,
@@ -62,6 +65,22 @@ export function TripNewClient() {
   });
 
   const didSubmit = useRef(state.status === "ready");
+  useEffect(() => {
+    if (mock) return;
+    const prefetchedTrip = takePrefetchedTrip({
+      destination,
+      duration,
+      preferences,
+    });
+    if (!prefetchedTrip) return;
+    didSubmit.current = true;
+    setState((current) =>
+      current.status === "idle"
+        ? { status: "ready", trip: prefetchedTrip }
+        : current
+    );
+  }, [mock, destination, duration, preferences]);
+
   const generate = useCallback(async () => {
     if (!destination) return;
     setState({ status: "loading" });
