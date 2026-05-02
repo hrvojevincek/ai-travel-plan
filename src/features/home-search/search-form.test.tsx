@@ -4,16 +4,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  fetchGeneratedTripMock: vi.fn(),
+  savePrefetchedTripMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: hoisted.pushMock }),
 }));
 
+vi.mock("@/features/trips/generate-client", () => ({
+  fetchGeneratedTrip: hoisted.fetchGeneratedTripMock,
+}));
+
+vi.mock("@/features/trips/prefetch-cache", () => ({
+  savePrefetchedTrip: hoisted.savePrefetchedTripMock,
+}));
+
 import { SearchForm } from "./search-form";
 
 beforeEach(() => {
   hoisted.pushMock.mockReset();
+  hoisted.fetchGeneratedTripMock.mockReset();
+  hoisted.fetchGeneratedTripMock.mockResolvedValue({ days: [] });
+  hoisted.savePrefetchedTripMock.mockReset();
 });
 
 describe("SearchForm", () => {
@@ -31,6 +44,12 @@ describe("SearchForm", () => {
     await user.click(screen.getByRole("button", { name: /plan my trip/i }));
 
     await waitFor(() => expect(hoisted.pushMock).toHaveBeenCalledTimes(1));
+    expect(hoisted.fetchGeneratedTripMock).toHaveBeenCalledWith({
+      destination: "Lisbon",
+      duration: 5,
+      preferences: "vegan, no museums",
+    });
+    expect(hoisted.savePrefetchedTripMock).toHaveBeenCalledTimes(1);
     const target = hoisted.pushMock.mock.calls[0][0] as string;
     const url = new URL(target, "http://localhost");
     expect(url.pathname).toBe("/trip/new");
@@ -46,6 +65,7 @@ describe("SearchForm", () => {
 
     await new Promise((r) => setTimeout(r, 50));
     expect(hoisted.pushMock).not.toHaveBeenCalled();
+    expect(hoisted.fetchGeneratedTripMock).not.toHaveBeenCalled();
   });
 
   it("does not navigate when duration is 0", async () => {
@@ -58,6 +78,7 @@ describe("SearchForm", () => {
 
     await new Promise((r) => setTimeout(r, 50));
     expect(hoisted.pushMock).not.toHaveBeenCalled();
+    expect(hoisted.fetchGeneratedTripMock).not.toHaveBeenCalled();
   });
 
   it("guest view (default) hides the preferences field", () => {

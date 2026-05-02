@@ -1,8 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { CheckCircle2, LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -15,6 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { hasMapsApiKey, PlacesAutocomplete } from "@/features/maps";
+import { fetchGeneratedTrip } from "@/features/trips/generate-client";
+import { savePrefetchedTrip } from "@/features/trips/prefetch-cache";
 import {
   buildTripNewHref,
   SearchFormSchema,
@@ -39,11 +44,56 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
     },
   });
 
-  const submit = form.handleSubmit((values) => {
-    router.push(buildTripNewHref(values));
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const loadingSteps = useMemo(
+    () => [
+      "Finding the best places",
+      "Crafting your day-by-day itinerary",
+      "Building your map pins",
+      "Finalizing the trip view",
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setLoadingStep(0);
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setLoadingStep((current) => Math.min(current + 1, loadingSteps.length - 1));
+    }, 1200);
+
+    return () => window.clearInterval(timer);
+  }, [isGenerating, loadingSteps.length]);
+
+  const submit = form.handleSubmit(async (values) => {
+    setIsGenerating(true);
+    try {
+      const trip = await fetchGeneratedTrip({
+        destination: values.destination,
+        duration: values.duration,
+        preferences: values.preferences || undefined,
+      });
+
+      savePrefetchedTrip({
+        destination: values.destination,
+        duration: values.duration,
+        preferences: values.preferences || undefined,
+        trip,
+      });
+
+      router.push(buildTripNewHref(values));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Couldn't generate your trip.";
+      toast.error(message);
+      setIsGenerating(false);
+    }
   });
 
-  const isPending = form.formState.isSubmitting;
+  const isPending = form.formState.isSubmitting || isGenerating;
   const mapsEnabled = hasMapsApiKey();
 
   const inputClass =
@@ -80,6 +130,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
                     placeholder="Lisbon, Portugal"
                     autoComplete="off"
                     className={inputClass}
+                    disabled={isPending}
                     aria-invalid={
                       !!form.formState.errors.destination || undefined
                     }
@@ -90,6 +141,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
                     placeholder="Lisbon, Portugal"
                     autoComplete="off"
                     className={inputClass}
+                    disabled={isPending}
                   />
                 )}
               </FormControl>
@@ -111,6 +163,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
                   min={1}
                   max={30}
                   className={inputClass}
+                  disabled={isPending}
                 />
               </FormControl>
               <FormMessage />
@@ -132,6 +185,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
                     placeholder="Vegan, no museums, local markets..."
                     rows={3}
                     className="resize-none border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30"
+                    disabled={isPending}
                   />
                 </FormControl>
                 <FormMessage />
@@ -145,9 +199,75 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
           className="h-12 w-full text-base font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
           disabled={isPending}
         >
-          Plan my trip
+          {isPending ? (
+            <>
+              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+              Planning your trip...
+            </>
+          ) : (
+            "Plan my trip"
+          )}
         </Button>
+        {isPending && (
+          <TripGenerationProgress
+            steps={loadingSteps}
+            currentStep={loadingStep}
+            destination={form.getValues("destination")}
+          />
+        )}
       </form>
     </Form>
+  );
+}
+
+function TripGenerationProgress({
+  steps,
+  currentStep,
+  destination,
+}: {
+  steps: string[];
+  currentStep: number;
+  destination: string;
+}) {
+  const total = steps.length;
+  const completed = currentStep + 1;
+  const progress = Math.round((completed / total) * 100);
+
+  return (
+    <div className="rounded-xl border border-white/25 bg-black/20 p-4 text-white shadow-lg backdrop-blur-sm">
+      <p className="text-sm font-medium text-white/90">
+        Building your {destination || "next"} adventure...
+      </p>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/20">
+        <div
+          className="h-full rounded-full bg-white transition-all duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <div className="mt-3 space-y-2">
+        {steps.map((step, index) => {
+          const isDone = index < currentStep;
+          const isActive = index === currentStep;
+          return (
+            <div
+              key={step}
+              className="flex items-center gap-2 text-xs text-white/80"
+              aria-live={isActive ? "polite" : undefined}
+            >
+              {isDone ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+              ) : (
+                <LoaderCircle
+                  className={`h-3.5 w-3.5 ${isActive ? "animate-spin text-white" : "text-white/40"}`}
+                />
+              )}
+              <span className={isActive ? "font-medium text-white" : undefined}>
+                {step}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
