@@ -133,67 +133,81 @@ function MapClickHandler({
   return null;
 }
 
+/**
+ * Resolve a usable photo_reference. Prefer placeId → Place Details: stored
+ * photo_reference values in the generation cache go stale and Google returns 400.
+ */
 async function resolvePhotoReference(
-  photoReference: string | null | undefined,
-  placeId: string | null | undefined
+  placeId: string | null | undefined,
+  photoReference: string | null | undefined
 ): Promise<string | null> {
-  if (photoReference) return photoReference;
-  if (!placeId) return null;
+  if (placeId) {
+    const params = new URLSearchParams({ placeId });
+    const res = await fetch(`/api/maps/photo-ref?${params.toString()}`);
+    if (res.ok) {
+      const data = (await res.json()) as { photoReference?: string | null };
+      if (data.photoReference) return data.photoReference;
+    }
+  }
+  return photoReference ?? null;
+}
 
-  const params = new URLSearchParams({ placeId });
-  const res = await fetch(`/api/maps/photo-ref?${params.toString()}`);
-  if (!res.ok) return null;
-  const data = (await res.json()) as { photoReference?: string | null };
-  return data.photoReference ?? null;
+async function signPhotoUrl(photoReference: string): Promise<string | null> {
+  const params = new URLSearchParams({ photoReference });
+  const signRes = await fetch(`/api/maps/photo-sign?${params.toString()}`, {
+    cache: "no-store",
+  });
+  if (!signRes.ok) return null;
+  const { ts, sig } = (await signRes.json()) as { ts?: string; sig?: string };
+  if (!ts || !sig) return null;
+  const urlParams = new URLSearchParams({
+    photoReference,
+    ts,
+    sig,
+    maxwidth: "400",
+  });
+  return `/api/maps/photo?${urlParams.toString()}`;
 }
 
 function ActivityInfoContent({ activity }: { activity: MapActivity }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(
-    Boolean(activity.photoReference || activity.placeId)
+    Boolean(activity.placeId || activity.photoReference)
   );
-  const showPhoto = Boolean(photoUrl && failedUrl !== photoUrl);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadPhoto() {
       const ref = await resolvePhotoReference(
-        activity.photoReference,
-        activity.placeId
+        activity.placeId,
+        activity.photoReference
       );
       if (cancelled) return;
       if (!ref) {
+        setFailed(true);
         setLoading(false);
         return;
       }
 
-      const params = new URLSearchParams({ photoReference: ref });
-      const signRes = await fetch(`/api/maps/photo-sign?${params.toString()}`, {
-        cache: "no-store",
-      });
+      const url = await signPhotoUrl(ref);
       if (cancelled) return;
-      if (!signRes.ok) {
+      if (!url) {
+        setFailed(true);
         setLoading(false);
         return;
       }
 
-      const { ts, sig } = (await signRes.json()) as {
-        ts?: string;
-        sig?: string;
-      };
-      if (!ts || !sig) {
-        setLoading(false);
-        return;
-      }
-
-      setPhotoUrl(buildPlacePhotoUrl(ref, ts, sig));
+      setPhotoUrl(url);
       setLoading(false);
     }
 
     void loadPhoto().catch(() => {
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        setFailed(true);
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -203,13 +217,13 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
 
   return (
     <div className="bg-popover w-56 overflow-hidden rounded-md">
-      {showPhoto ? (
+      {photoUrl && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={photoUrl ?? undefined}
+          src={photoUrl}
           alt={activity.name}
           className="mb-2 h-28 w-full rounded object-cover"
-          onError={() => setFailedUrl(photoUrl)}
+          onError={() => setFailed(true)}
         />
       ) : (
         <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-zinc-100 text-zinc-500">
@@ -235,20 +249,6 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
       </div>
     </div>
   );
-}
-
-function buildPlacePhotoUrl(
-  photoReference: string,
-  ts: string,
-  sig: string
-): string {
-  const params = new URLSearchParams({
-    photoReference,
-    ts,
-    sig,
-    maxwidth: "400",
-  });
-  return `/api/maps/photo?${params.toString()}`;
 }
 
 const PIN_BG = "#2563eb";
