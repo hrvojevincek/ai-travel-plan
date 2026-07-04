@@ -2,10 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -18,13 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { hasMapsApiKey, PlacesAutocomplete } from "@/features/maps";
-import { fetchGeneratedTrip } from "@/features/trips/generate-client";
-import { savePrefetchedTrip } from "@/features/trips/prefetch-cache";
-import {
-  buildTripNewHref,
-  SearchFormSchema,
-  type SearchFormValues,
-} from "./schema";
+import { useGenerateTripMutation } from "@/features/trips/hooks/use-generate-trip";
+import { SearchFormSchema, type SearchFormValues } from "./schema";
 
 interface SearchFormProps {
   /** Show the preferences textarea. Gated to signed-in users. */
@@ -32,7 +25,7 @@ interface SearchFormProps {
 }
 
 export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
-  const router = useRouter();
+  const generateMutation = useGenerateTripMutation();
   const form = useForm<SearchFormValues>({
     resolver: zodResolver(
       SearchFormSchema
@@ -45,7 +38,6 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
   });
 
   const [loadingStep, setLoadingStep] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
   const loadingSteps = useMemo(
     () => [
       "Finding the best places",
@@ -57,43 +49,32 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
   );
 
   useEffect(() => {
-    if (!isGenerating) {
+    if (!generateMutation.isPending) {
       setLoadingStep(0);
       return;
     }
 
     const timer = window.setInterval(() => {
-      setLoadingStep((current) => Math.min(current + 1, loadingSteps.length - 1));
+      setLoadingStep((current) =>
+        Math.min(current + 1, loadingSteps.length - 1)
+      );
     }, 1200);
 
     return () => window.clearInterval(timer);
-  }, [isGenerating, loadingSteps.length]);
+  }, [generateMutation.isPending, loadingSteps.length]);
 
-  const submit = form.handleSubmit(async (values) => {
-    setIsGenerating(true);
-    try {
-      const trip = await fetchGeneratedTrip({
-        destination: values.destination,
-        duration: values.duration,
-        preferences: values.preferences || undefined,
-      });
-
-      savePrefetchedTrip({
-        destination: values.destination,
-        duration: values.duration,
-        preferences: values.preferences || undefined,
-        trip,
-      });
-
-      router.push(buildTripNewHref(values));
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Couldn't generate your trip.";
-      toast.error(message);
-      setIsGenerating(false);
-    }
+  const submit = form.handleSubmit((values) => {
+    generateMutation.mutate({
+      destination: values.destination,
+      duration: values.duration,
+      preferences: values.preferences || undefined,
+      placeId: values.placeId,
+      destinationLat: values.destinationLat,
+      destinationLng: values.destinationLng,
+    });
   });
 
-  const isPending = form.formState.isSubmitting || isGenerating;
+  const isPending = form.formState.isSubmitting || generateMutation.isPending;
   const mapsEnabled = hasMapsApiKey();
 
   const inputClass =

@@ -28,7 +28,7 @@ vi.mock("sonner", () => ({
   toast: { error: hoisted.toastError },
 }));
 
-import { type UseAuthFormOpts, useAuthForm } from "./client";
+import { type UseAuthFormOpts, useAuthForm } from "../client";
 
 function SignInHarness(props: UseAuthFormOpts = {}) {
   const { form, submit, isPending } = useAuthForm("sign-in", props);

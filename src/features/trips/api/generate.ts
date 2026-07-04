@@ -1,7 +1,7 @@
 import {
   GeneratedTripResponse,
   type GeneratedTripResponseT,
-} from "./generate";
+} from "../generate";
 
 export async function fetchGeneratedTrip(input: {
   destination: string;
@@ -29,3 +29,5 @@ export async function fetchGeneratedTrip(input: {
 
   return parsed.data;
 }
+
+export type GenerateTripInput = Parameters<typeof fetchGeneratedTrip>[0];

@@ -6,11 +6,11 @@ import { MockLanguageModelV3 } from "ai/test";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AppDb } from "@/db/client";
 import { user } from "@/db/schema";
-import { mockObjectModel } from "../../test/ai";
-import { type TestDbHandle, useTestDb } from "../../test/db";
-import { createTrip, getTrip, updateActivity } from "./data";
-import type { CreateTripInputT } from "./schemas";
-import { type SwapActivityOutputT, swapActivity } from "./swap";
+import { mockObjectModel } from "@/test/helpers/ai";
+import { type TestDbHandle, useTestDb } from "@/test/helpers/db";
+import { createTrip, getTrip, updateActivity } from "../data";
+import type { CreateTripInputT } from "../schemas";
+import { type SwapActivityOutputT, swapActivity } from "../swap";
 
 function asAppDb(h: TestDbHandle): AppDb {
   return h.db as unknown as AppDb;

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("clientIp", () => {
   it("returns the first entry in x-forwarded-for when present", async () => {
-    const { clientIp } = await import("./rate-limit");
+    const { clientIp } = await import("../rate-limit");
     const headers = new Headers({
       "x-forwarded-for": "203.0.113.5, 10.0.0.1",
     });
@@ -10,7 +10,7 @@ describe("clientIp", () => {
   });
 
   it("trims whitespace around forwarded entries", async () => {
-    const { clientIp } = await import("./rate-limit");
+    const { clientIp } = await import("../rate-limit");
     const headers = new Headers({
       "x-forwarded-for": "  203.0.113.5  , 10.0.0.1",
     });
@@ -18,24 +18,24 @@ describe("clientIp", () => {
   });
 
   it("falls back to x-real-ip when no x-forwarded-for", async () => {
-    const { clientIp } = await import("./rate-limit");
+    const { clientIp } = await import("../rate-limit");
     const headers = new Headers({ "x-real-ip": "198.51.100.9" });
     expect(clientIp(headers)).toBe("198.51.100.9");
   });
 
   it("returns 'unknown' when no ip headers are present", async () => {
-    const { clientIp } = await import("./rate-limit");
+    const { clientIp } = await import("../rate-limit");
     expect(clientIp(new Headers())).toBe("unknown");
   });
 
   it("returns 'unknown' when x-real-ip is empty or whitespace-only", async () => {
-    const { clientIp } = await import("./rate-limit");
+    const { clientIp } = await import("../rate-limit");
     expect(clientIp(new Headers({ "x-real-ip": "" }))).toBe("unknown");
     expect(clientIp(new Headers({ "x-real-ip": "   " }))).toBe("unknown");
   });
 
   it("trims whitespace around x-real-ip", async () => {
-    const { clientIp } = await import("./rate-limit");
+    const { clientIp } = await import("../rate-limit");
     expect(clientIp(new Headers({ "x-real-ip": "  198.51.100.9  " }))).toBe(
       "198.51.100.9"
     );
@@ -56,7 +56,7 @@ describe("checkTripGenerateLimit — no Upstash creds", () => {
   });
 
   it("passes through with success=true when creds are missing", async () => {
-    const { checkTripGenerateLimit } = await import("./rate-limit");
+    const { checkTripGenerateLimit } = await import("../rate-limit");
     const result = await checkTripGenerateLimit("203.0.113.5");
     expect(result.success).toBe(true);
     expect(result.scope).toBeNull();
@@ -108,7 +108,7 @@ describe("checkTripGenerateLimit — with mocked Upstash", () => {
       return { Ratelimit };
     });
 
-    const { checkTripGenerateLimit } = await import("./rate-limit");
+    const { checkTripGenerateLimit } = await import("../rate-limit");
     const result = await checkTripGenerateLimit("203.0.113.5");
     expect(result.success).toBe(false);
     expect(result.scope).toBe("minute");
@@ -142,7 +142,7 @@ describe("checkTripGenerateLimit — with mocked Upstash", () => {
       return { Ratelimit };
     });
 
-    const { checkTripGenerateLimit } = await import("./rate-limit");
+    const { checkTripGenerateLimit } = await import("../rate-limit");
     const result = await checkTripGenerateLimit("203.0.113.5");
     expect(result.success).toBe(false);
     expect(result.scope).toBe("day");
@@ -164,7 +164,7 @@ describe("checkTripGenerateLimit — with mocked Upstash", () => {
       return { Ratelimit };
     });
 
-    const { checkTripGenerateLimit } = await import("./rate-limit");
+    const { checkTripGenerateLimit } = await import("../rate-limit");
     const result = await checkTripGenerateLimit("203.0.113.5");
     expect(result.success).toBe(true);
     expect(result.scope).toBeNull();
@@ -201,7 +201,7 @@ describe("checkTripGenerateLimit — with mocked Upstash", () => {
       return { Ratelimit };
     });
 
-    const { checkTripGenerateLimit } = await import("./rate-limit");
+    const { checkTripGenerateLimit } = await import("../rate-limit");
     const result = await checkTripGenerateLimit("203.0.113.5");
     expect(result.success).toBe(true);
     expect(result.remaining).toBe(2);

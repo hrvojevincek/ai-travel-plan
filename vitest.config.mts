@@ -12,7 +12,7 @@ export default defineConfig({
       // it to a no-op for tests. The runtime guard still applies in prod.
       // fileURLToPath for Windows correctness (URL.pathname yields "/C:/..").
       "server-only": fileURLToPath(
-        new URL("./src/test/server-only-shim.ts", import.meta.url)
+        new URL("./src/test/helpers/server-only-shim.ts", import.meta.url)
       ),
     },
   },

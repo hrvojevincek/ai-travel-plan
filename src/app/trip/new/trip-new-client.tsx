@@ -3,26 +3,14 @@
 import { RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { fetchGeneratedTrip } from "@/features/trips/generate-client";
-import { saveTrip } from "@/features/trips/actions";
-import {
-  type GeneratedTripResponseT,
-} from "@/features/trips/generate";
+import type { GeneratedTripResponseT } from "@/features/trips/generate";
+import { useGeneratedTripQuery } from "@/features/trips/hooks/use-generate-trip";
+import { useSaveTripMutation } from "@/features/trips/hooks/use-save-trip";
 import { mockTrip } from "@/features/trips/mock";
-import {
-  peekPrefetchedTrip,
-  takePrefetchedTrip,
-} from "@/features/trips/prefetch-cache";
 import { TripView } from "@/features/trips/view";
-
-type GenState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ready"; trip: GeneratedTripResponseT }
-  | { status: "error"; message: string };
 
 function parseNumericParam(
   value: string | null,
@@ -49,94 +37,65 @@ export function TripNewClient() {
   const destinationLng = parseNumericParam(params.get("lng"), -180, 180);
   const placeId = params.get("placeId") || undefined;
 
-  const [isSaving, startSaving] = useTransition();
   const autoSaveFired = useRef(false);
+  const saveMutation = useSaveTripMutation();
 
-  const [state, setState] = useState<GenState>(() => {
-    if (mock) return { status: "ready", trip: mockTrip as GeneratedTripResponseT };
-    const prefetchedTrip = peekPrefetchedTrip({
-      destination,
-      duration,
-      preferences,
-    });
-    return prefetchedTrip
-      ? { status: "ready", trip: prefetchedTrip }
-      : { status: "idle" };
+  const {
+    data: generatedTrip,
+    isError,
+    error,
+    refetch,
+  } = useGeneratedTripQuery({
+    destination,
+    duration,
+    preferences,
+    enabled: !mock,
   });
 
-  const didSubmit = useRef(state.status === "ready");
-  useEffect(() => {
-    if (mock) return;
-    const prefetchedTrip = takePrefetchedTrip({
-      destination,
-      duration,
-      preferences,
-    });
-    if (!prefetchedTrip) return;
-    didSubmit.current = true;
-    setState((current) =>
-      current.status === "idle"
-        ? { status: "ready", trip: prefetchedTrip }
-        : current
-    );
-  }, [mock, destination, duration, preferences]);
+  const trip: GeneratedTripResponseT | undefined = mock
+    ? (mockTrip as GeneratedTripResponseT)
+    : generatedTrip;
 
-  const generate = useCallback(async () => {
-    if (!destination) return;
-    setState({ status: "loading" });
-    try {
-      const trip = await fetchGeneratedTrip({
-        destination,
-        duration,
-        preferences,
-      });
-      setState({ status: "ready", trip });
-    } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Couldn't generate your trip.";
-      setState({ status: "error", message });
-      toast.error(message);
-    }
-  }, [destination, duration, preferences]);
-
-  useEffect(() => {
-    if (mock || didSubmit.current || !destination) return;
-    didSubmit.current = true;
-    void generate();
-  }, [mock, destination, generate]);
-
-  const trip = state.status === "ready" ? state.trip : undefined;
-  const canSave = state.status === "ready" && !isSaving;
+  const canSave = Boolean(trip) && !saveMutation.isPending;
 
   const runSave = useCallback(
     (data: GeneratedTripResponseT) => {
-      startSaving(async () => {
-        const destinationPick =
-          placeId && destinationLat != null && destinationLng != null
-            ? { placeId, lat: destinationLat, lng: destinationLng }
-            : undefined;
-        const res = await saveTrip(data, { destination: destinationPick });
-        if (res.ok) {
-          router.push(`/trip/${res.id}`);
-          return;
+      const destinationPick =
+        placeId && destinationLat != null && destinationLng != null
+          ? { placeId, lat: destinationLat, lng: destinationLng }
+          : undefined;
+
+      saveMutation.mutate(
+        { trip: data, opts: { destination: destinationPick } },
+        {
+          onSuccess: (res) => {
+            if (res.ok) {
+              router.push(`/trip/${res.id}`);
+              return;
+            }
+            if (res.code === "UNAUTH") {
+              toast.info("Sign in to save your trip.");
+              const qs = new URLSearchParams({
+                destination,
+                duration: String(duration),
+                ...(preferences ? { preferences } : {}),
+                ...(placeId ? { placeId } : {}),
+                ...(destinationLat != null
+                  ? { lat: String(destinationLat) }
+                  : {}),
+                ...(destinationLng != null
+                  ? { lng: String(destinationLng) }
+                  : {}),
+                saveOnLoad: "1",
+              });
+              const returnTo = `/trip/new?${qs.toString()}`;
+              router.push(`/login?redirectTo=${encodeURIComponent(returnTo)}`);
+              return;
+            }
+            toast.error(res.message ?? "Couldn't save trip. Please try again.");
+          },
         }
-        if (res.code === "UNAUTH") {
-          toast.info("Sign in to save your trip.");
-          const qs = new URLSearchParams({
-            destination,
-            duration: String(duration),
-            ...(preferences ? { preferences } : {}),
-            ...(placeId ? { placeId } : {}),
-            ...(destinationLat != null ? { lat: String(destinationLat) } : {}),
-            ...(destinationLng != null ? { lng: String(destinationLng) } : {}),
-            saveOnLoad: "1",
-          });
-          const returnTo = `/trip/new?${qs.toString()}`;
-          router.push(`/login?redirectTo=${encodeURIComponent(returnTo)}`);
-          return;
-        }
-        toast.error(res.message ?? "Couldn't save trip. Please try again.");
-      });
+      );
     },
     [
       destination,
@@ -146,34 +105,35 @@ export function TripNewClient() {
       destinationLat,
       destinationLng,
       router,
+      saveMutation,
     ]
   );
 
   const handleSave = () => {
-    if (state.status !== "ready" || isSaving) return;
-    runSave(state.trip);
+    if (!trip || saveMutation.isPending) return;
+    runSave(trip);
   };
 
-  // After returning from login, auto-retry save once generation is ready.
   const shouldAutoSave = params.get("saveOnLoad") === "1";
   useEffect(() => {
     if (!shouldAutoSave || autoSaveFired.current) return;
-    if (state.status !== "ready") return;
+    if (!trip) return;
     autoSaveFired.current = true;
-    runSave(state.trip);
-  }, [shouldAutoSave, state, runSave]);
+    runSave(trip);
+  }, [shouldAutoSave, trip, runSave]);
 
   if (!destination) {
     return <InvalidState />;
   }
 
-  if (state.status === "error") {
+  if (isError) {
+    const message =
+      error instanceof Error ? error.message : "Couldn't generate your trip.";
     return (
       <ErrorState
-        message={state.message}
+        message={message}
         onRetry={() => {
-          didSubmit.current = true;
-          void generate();
+          void refetch();
         }}
       />
     );
@@ -187,7 +147,7 @@ export function TripNewClient() {
       destinationLat={destinationLat}
       destinationLng={destinationLng}
       canSave={canSave}
-      saveLabel={isSaving ? "Saving…" : "Save trip"}
+      saveLabel={saveMutation.isPending ? "Saving…" : "Save trip"}
       onSave={handleSave}
     />
   );
