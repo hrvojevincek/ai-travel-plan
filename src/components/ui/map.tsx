@@ -46,7 +46,7 @@ const blankMapStyle: MapLibreGL.StyleSpecification = {
 
 function mergeHoverPaint<T extends Record<string, unknown>>(
   paint: T,
-  hoverPaint: T | undefined,
+  hoverPaint: T | undefined
 ): T {
   if (!hoverPaint) return paint;
   const merged: Record<string, unknown> = { ...paint };
@@ -86,7 +86,7 @@ function getSystemTheme(): Theme {
 
 function useResolvedTheme(themeProp?: "light" | "dark"): Theme {
   const [detectedTheme, setDetectedTheme] = useState<Theme>(
-    () => getDocumentTheme() ?? getSystemTheme(),
+    () => getDocumentTheme() ?? getSystemTheme()
   );
 
   useEffect(() => {
@@ -229,7 +229,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     loading = false,
     ...props
   },
-  ref,
+  ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
@@ -383,7 +383,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       isLoaded: isLoaded && isStyleLoaded,
       resolvedTheme,
     }),
-    [mapInstance, isLoaded, isStyleLoaded, resolvedTheme],
+    [mapInstance, isLoaded, isStyleLoaded, resolvedTheme]
   );
 
   return (
@@ -585,7 +585,7 @@ function MarkerContent({ children, className }: MarkerContentProps) {
     <div className={cn("relative cursor-pointer", className)}>
       {children || <DefaultMarkerIcon />}
     </div>,
-    marker.getElement(),
+    marker.getElement()
   );
 }
 
@@ -667,13 +667,13 @@ function MarkerPopup({
       className={cn(
         "bg-popover text-popover-foreground relative max-w-62 rounded-md border p-3 shadow-md",
         "animate-in fade-in-0 zoom-in-95 duration-200 ease-out",
-        className,
+        className
       )}
     >
       {closeButton && <PopupCloseButton onClick={handleClose} />}
       {children}
     </div>,
-    container,
+    container
   );
 }
 
@@ -739,12 +739,12 @@ function MarkerTooltip({
       className={cn(
         "bg-foreground text-background pointer-events-none rounded-md px-2 py-1 text-xs text-balance shadow-md",
         "animate-in fade-in-0 zoom-in-95 duration-200 ease-out",
-        className,
+        className
       )}
     >
       {children}
     </div>,
-    container,
+    container
   );
 }
 
@@ -773,7 +773,7 @@ function MarkerLabel({
         "absolute left-1/2 -translate-x-1/2 whitespace-nowrap",
         "text-foreground text-[10px] font-medium",
         positionClasses[position],
-        className,
+        className
       )}
     >
       {children}
@@ -834,7 +834,7 @@ function ControlButton({
         "first:rounded-t-md last:rounded-b-md",
         "hover:bg-accent dark:hover:bg-accent/40",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
-        "disabled:pointer-events-none disabled:opacity-50",
+        "disabled:pointer-events-none disabled:opacity-50"
       )}
       disabled={disabled}
     >
@@ -868,28 +868,27 @@ function MapControls({
   }, [map]);
 
   const handleLocate = useCallback(() => {
+    if (!("geolocation" in navigator)) return;
     setWaitingForLocation(true);
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = {
-            longitude: pos.coords.longitude,
-            latitude: pos.coords.latitude,
-          };
-          map?.flyTo({
-            center: [coords.longitude, coords.latitude],
-            zoom: 14,
-            duration: 1500,
-          });
-          onLocate?.(coords);
-          setWaitingForLocation(false);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setWaitingForLocation(false);
-        },
-      );
-    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = {
+          longitude: pos.coords.longitude,
+          latitude: pos.coords.latitude,
+        };
+        map?.flyTo({
+          center: [coords.longitude, coords.latitude],
+          zoom: 14,
+          duration: 1500,
+        });
+        onLocate?.(coords);
+        setWaitingForLocation(false);
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+        setWaitingForLocation(false);
+      }
+    );
   }, [map, onLocate]);
 
   const handleFullscreen = useCallback(() => {
@@ -907,7 +906,7 @@ function MapControls({
       className={cn(
         "absolute z-10 flex flex-col gap-1.5",
         positionClasses[position],
-        className,
+        className
       )}
     >
       {showZoom && (
@@ -1076,13 +1075,13 @@ function MapPopup({
       className={cn(
         "bg-popover text-popover-foreground relative max-w-62 rounded-md border p-3 shadow-md",
         "animate-in fade-in-0 zoom-in-95 duration-200 ease-out",
-        className,
+        className
       )}
     >
       {closeButton && <PopupCloseButton onClick={handleClose} />}
       {children}
     </div>,
-    container,
+    container
   );
 }
 
@@ -1340,9 +1339,9 @@ function MapGeoJSON<
     () =>
       mergeHoverPaint(
         { "fill-color": defaults.fill, ...(fillPaint || {}) },
-        fillHoverPaint,
+        fillHoverPaint
       ),
-    [defaults.fill, fillPaint, fillHoverPaint],
+    [defaults.fill, fillPaint, fillHoverPaint]
   );
   const mergedLinePaint = useMemo(
     () => ({
@@ -1350,7 +1349,7 @@ function MapGeoJSON<
       "line-width": 0.5,
       ...(linePaint || {}),
     }),
-    [defaults.line, linePaint],
+    [defaults.line, linePaint]
   );
   const latestRef = useRef({ onClick, onHover });
   latestRef.current = { onClick, onHover };
@@ -1401,7 +1400,7 @@ function MapGeoJSON<
           source: sourceId,
           paint: mergedFillPaint,
         },
-        beforeId,
+        beforeId
       );
     } else if (!showFill && map.getLayer(fillLayerId)) {
       map.removeLayer(fillLayerId);
@@ -1415,7 +1414,7 @@ function MapGeoJSON<
           source: sourceId,
           paint: mergedLinePaint,
         },
-        beforeId,
+        beforeId
       );
     } else if (!showLine && map.getLayer(lineLayerId)) {
       map.removeLayer(lineLayerId);
@@ -1426,7 +1425,7 @@ function MapGeoJSON<
         map.setPaintProperty(
           fillLayerId,
           key as keyof MapFillPaint,
-          value as never,
+          value as never
         );
       }
     }
@@ -1435,7 +1434,7 @@ function MapGeoJSON<
         map.setPaintProperty(
           lineLayerId,
           key as keyof MapLinePaint,
-          value as never,
+          value as never
         );
       }
     }
@@ -1464,7 +1463,7 @@ function MapGeoJSON<
       if (hoveredId != null && sourceExists) {
         map.setFeatureState(
           { source: sourceId, id: hoveredId },
-          { hover: false },
+          { hover: false }
         );
       }
       hoveredId = next;
@@ -1613,7 +1612,7 @@ function buildArcCoordinates(
   from: [number, number],
   to: [number, number],
   curvature: number,
-  samples: number,
+  samples: number
 ): [number, number][] {
   const [x0, y0] = from;
   const [xTo, y2] = to;
@@ -1672,11 +1671,11 @@ function MapArc<T extends MapArcDatum = MapArcDatum>({
 
   const mergedPaint = useMemo(
     () => mergeHoverPaint({ ...DEFAULT_ARC_PAINT, ...paint }, hoverPaint),
-    [paint, hoverPaint],
+    [paint, hoverPaint]
   );
   const mergedLayout = useMemo(
     () => ({ ...DEFAULT_ARC_LAYOUT, ...layout }),
-    [layout],
+    [layout]
   );
 
   const hitWidth = useMemo(() => {
@@ -1700,7 +1699,7 @@ function MapArc<T extends MapArcDatum = MapArcDatum>({
         };
       }),
     }),
-    [data, curvature, samples],
+    [data, curvature, samples]
   );
 
   const latestRef = useRef({ data, onClick, onHover });
@@ -1728,7 +1727,7 @@ function MapArc<T extends MapArcDatum = MapArcDatum>({
           "line-opacity": 1,
         },
       },
-      beforeId,
+      beforeId
     );
 
     map.addLayer(
@@ -1739,7 +1738,7 @@ function MapArc<T extends MapArcDatum = MapArcDatum>({
         layout: mergedLayout,
         paint: mergedPaint,
       },
-      beforeId,
+      beforeId
     );
 
     return () => {
@@ -1770,14 +1769,14 @@ function MapArc<T extends MapArcDatum = MapArcDatum>({
       map.setPaintProperty(
         layerId,
         key as keyof MapArcLinePaint,
-        value as never,
+        value as never
       );
     }
     for (const [key, value] of Object.entries(mergedLayout)) {
       map.setLayoutProperty(
         layerId,
         key as keyof MapArcLineLayout,
-        value as never,
+        value as never
       );
     }
     if (map.getLayer(hitLayerId)) {
@@ -1797,7 +1796,7 @@ function MapArc<T extends MapArcDatum = MapArcDatum>({
       if (hoveredId != null && sourceExists) {
         map.setFeatureState(
           { source: sourceId, id: hoveredId },
-          { hover: false },
+          { hover: false }
         );
       }
       hoveredId = next;
@@ -1810,7 +1809,7 @@ function MapArc<T extends MapArcDatum = MapArcDatum>({
       featureId == null
         ? undefined
         : latestRef.current.data.find(
-            (arc) => String(arc.id) === String(featureId),
+            (arc) => String(arc.id) === String(featureId)
           );
 
     const handleMouseMove = (e: MapLibreGL.MapLayerMouseEvent) => {
@@ -1882,13 +1881,13 @@ type MapClusterLayerProps<
   /** Callback when an unclustered point is clicked */
   onPointClick?: (
     feature: GeoJSON.Feature<GeoJSON.Point, P>,
-    coordinates: [number, number],
+    coordinates: [number, number]
   ) => void;
   /** Callback when a cluster is clicked. If not provided, zooms into the cluster */
   onClusterClick?: (
     clusterId: number,
     coordinates: [number, number],
-    pointCount: number,
+    pointCount: number
   ) => void;
 };
 
@@ -2078,7 +2077,7 @@ function MapClusterLayer<
     const handleClusterClick = async (
       e: MapLibreGL.MapMouseEvent & {
         features?: MapLibreGL.MapGeoJSONFeature[];
-      },
+      }
     ) => {
       const features = map.queryRenderedFeatures(e.point, {
         layers: [clusterLayerId],
@@ -2110,7 +2109,7 @@ function MapClusterLayer<
     const handlePointClick = (
       e: MapLibreGL.MapMouseEvent & {
         features?: MapLibreGL.MapGeoJSONFeature[];
-      },
+      }
     ) => {
       if (!onPointClick || !e.features?.length) return;
 
@@ -2126,7 +2125,7 @@ function MapClusterLayer<
 
       onPointClick(
         feature as unknown as GeoJSON.Feature<GeoJSON.Point, P>,
-        coordinates,
+        coordinates
       );
     };
 

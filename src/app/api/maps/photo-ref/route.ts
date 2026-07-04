@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 const PLACE_DETAILS_ENDPOINT =
   "https://maps.googleapis.com/maps/api/place/details/json";
+const TIMEOUT_MS = 5_000;
 
 export async function GET(req: NextRequest): Promise<Response> {
   const key = process.env.GOOGLE_MAPS_SERVER_KEY;
@@ -19,7 +20,19 @@ export async function GET(req: NextRequest): Promise<Response> {
   url.searchParams.set("fields", "photos");
   url.searchParams.set("key", key);
 
-  const upstream = await fetch(url.toString());
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(url.toString(), { signal: controller.signal });
+  } catch (e) {
+    const status = e instanceof Error && e.name === "AbortError" ? 504 : 502;
+    return new Response("place details failed", { status });
+  } finally {
+    clearTimeout(timer);
+  }
+
   if (!upstream.ok) {
     return new Response("place details failed", { status: upstream.status });
   }
