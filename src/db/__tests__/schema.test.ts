@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { activity, day, trip, user } from "@/db/schema";
-import { useTestDb } from "../test/db";
+import { useTestDb } from "@/test/helpers/db";
 
 describe("trip schema", () => {
   it("cascades deletes: user → trip → day → activity", async () => {

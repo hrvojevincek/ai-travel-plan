@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { mockObjectModel } from "./ai";
+import { mockObjectModel } from "@/test/helpers/ai";
 
 const TripSchema = z.object({
   destination: z.string(),

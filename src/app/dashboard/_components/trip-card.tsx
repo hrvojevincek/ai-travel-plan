@@ -3,7 +3,6 @@
 import { Loader2, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useTransition } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -17,7 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteTripAction } from "@/features/trips/actions";
+import { useDeleteTripMutation } from "@/features/trips/hooks/use-trip-detail";
 
 export interface TripCardData {
   id: string;
@@ -30,24 +29,19 @@ export interface TripCardData {
 }
 
 export function TripCard({ trip }: { trip: TripCardData }) {
-  const [isDeleting, startDelete] = useTransition();
+  const deleteMutation = useDeleteTripMutation();
 
   const onConfirm = () => {
-    startDelete(async () => {
-      try {
-        const res = await deleteTripAction(trip.id);
+    deleteMutation.mutate(trip.id, {
+      onSuccess: (res) => {
         if (res.ok) {
           toast.success(`Deleted ${trip.destination}`);
-          return;
         }
-        toast.error(res.message ?? "Couldn't delete trip. Please try again.");
-      } catch (e) {
-        toast.error(
-          e instanceof Error ? e.message : "Couldn't delete trip. Please try again."
-        );
-      }
+      },
     });
   };
+
+  const isDeleting = deleteMutation.isPending;
 
   const cost =
     trip.totalEstimatedCost != null

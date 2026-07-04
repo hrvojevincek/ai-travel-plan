@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTripNewHref, SearchFormSchema } from "./schema";
+import { buildTripNewHref, SearchFormSchema } from "../schema";
 
 describe("SearchFormSchema", () => {
   it("accepts valid input", () => {

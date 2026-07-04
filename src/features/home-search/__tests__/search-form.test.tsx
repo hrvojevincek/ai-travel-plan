@@ -1,45 +1,44 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryWrapper } from "@/test/helpers/query-wrapper";
 
 const hoisted = vi.hoisted(() => ({
   pushMock: vi.fn(),
   fetchGeneratedTripMock: vi.fn(),
-  savePrefetchedTripMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: hoisted.pushMock }),
 }));
 
-vi.mock("@/features/trips/generate-client", () => ({
+vi.mock("@/features/trips/api/generate", () => ({
   fetchGeneratedTrip: hoisted.fetchGeneratedTripMock,
 }));
 
-vi.mock("@/features/trips/prefetch-cache", () => ({
-  savePrefetchedTrip: hoisted.savePrefetchedTripMock,
-}));
+import { SearchForm } from "../search-form";
 
-import { SearchForm } from "./search-form";
+function renderSearchForm(ui: React.ReactElement) {
+  return render(ui, { wrapper: QueryWrapper });
+}
 
 beforeEach(() => {
   hoisted.pushMock.mockReset();
   hoisted.fetchGeneratedTripMock.mockReset();
   hoisted.fetchGeneratedTripMock.mockResolvedValue({ days: [] });
-  hoisted.savePrefetchedTripMock.mockReset();
 });
 
 describe("SearchForm", () => {
   it("navigates to /trip/new with the typed query params on submit (signed in, preferences visible)", async () => {
     const user = userEvent.setup();
-    render(<SearchForm showPreferences />);
+    renderSearchForm(<SearchForm showPreferences />);
 
     await user.type(screen.getByLabelText("Destination"), "Lisbon");
     await user.clear(screen.getByLabelText("Duration (days)"));
     await user.type(screen.getByLabelText("Duration (days)"), "5");
     await user.type(
       screen.getByLabelText("Preferences (optional)"),
-      "vegan, no museums",
+      "vegan, no museums"
     );
     await user.click(screen.getByRole("button", { name: /plan my trip/i }));
 
@@ -49,7 +48,6 @@ describe("SearchForm", () => {
       duration: 5,
       preferences: "vegan, no museums",
     });
-    expect(hoisted.savePrefetchedTripMock).toHaveBeenCalledTimes(1);
     const target = hoisted.pushMock.mock.calls[0][0] as string;
     const url = new URL(target, "http://localhost");
     expect(url.pathname).toBe("/trip/new");
@@ -60,7 +58,7 @@ describe("SearchForm", () => {
 
   it("does not navigate when destination is empty", async () => {
     const user = userEvent.setup();
-    render(<SearchForm />);
+    renderSearchForm(<SearchForm />);
     await user.click(screen.getByRole("button", { name: /plan my trip/i }));
 
     await new Promise((r) => setTimeout(r, 50));
@@ -70,7 +68,7 @@ describe("SearchForm", () => {
 
   it("does not navigate when duration is 0", async () => {
     const user = userEvent.setup();
-    render(<SearchForm />);
+    renderSearchForm(<SearchForm />);
     await user.type(screen.getByLabelText("Destination"), "Lisbon");
     await user.clear(screen.getByLabelText("Duration (days)"));
     await user.type(screen.getByLabelText("Duration (days)"), "0");
@@ -82,17 +80,17 @@ describe("SearchForm", () => {
   });
 
   it("guest view (default) hides the preferences field", () => {
-    render(<SearchForm />);
+    renderSearchForm(<SearchForm />);
     expect(screen.getByLabelText("Destination")).toBeInTheDocument();
     expect(screen.getByLabelText("Duration (days)")).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Preferences (optional)"),
+      screen.queryByLabelText("Preferences (optional)")
     ).not.toBeInTheDocument();
   });
 
   it("guest submit still works and omits preferences from the URL", async () => {
     const user = userEvent.setup();
-    render(<SearchForm />);
+    renderSearchForm(<SearchForm />);
     await user.type(screen.getByLabelText("Destination"), "Porto");
     await user.clear(screen.getByLabelText("Duration (days)"));
     await user.type(screen.getByLabelText("Duration (days)"), "2");

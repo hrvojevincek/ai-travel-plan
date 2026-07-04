@@ -1,14 +1,6 @@
 "use client";
 
 import {
-  Map,
-  MapControls,
-  MapMarker,
-  MapPopup,
-  MarkerContent,
-  useMap,
-} from "@/components/ui/map";
-import {
   Camera,
   CameraOff,
   Coffee,
@@ -17,7 +9,16 @@ import {
   Wine,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Map,
+  MapControls,
+  MapMarker,
+  MapPopup,
+  MarkerContent,
+  useMap,
+} from "@/components/ui/map";
 import type { GeneratedActivityTypeT } from "@/features/trips/generate";
+import { useActivityPhotoQuery } from "./hooks/use-activity-photo";
 
 export interface MapActivity {
   id: string;
@@ -137,83 +138,14 @@ function MapClickHandler({
  * Resolve a usable photo_reference. Prefer placeId → Place Details: stored
  * photo_reference values in the generation cache go stale and Google returns 400.
  */
-async function resolvePhotoReference(
-  placeId: string | null | undefined,
-  photoReference: string | null | undefined
-): Promise<string | null> {
-  if (placeId) {
-    const params = new URLSearchParams({ placeId });
-    const res = await fetch(`/api/maps/photo-ref?${params.toString()}`);
-    if (res.ok) {
-      const data = (await res.json()) as { photoReference?: string | null };
-      if (data.photoReference) return data.photoReference;
-    }
-  }
-  return photoReference ?? null;
-}
-
-async function signPhotoUrl(photoReference: string): Promise<string | null> {
-  const params = new URLSearchParams({ photoReference });
-  const signRes = await fetch(`/api/maps/photo-sign?${params.toString()}`, {
-    cache: "no-store",
-  });
-  if (!signRes.ok) return null;
-  const { ts, sig } = (await signRes.json()) as { ts?: string; sig?: string };
-  if (!ts || !sig) return null;
-  const urlParams = new URLSearchParams({
-    photoReference,
-    ts,
-    sig,
-    maxwidth: "400",
-  });
-  return `/api/maps/photo?${urlParams.toString()}`;
-}
-
 function ActivityInfoContent({ activity }: { activity: MapActivity }) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(
-    Boolean(activity.placeId || activity.photoReference)
-  );
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPhoto() {
-      const ref = await resolvePhotoReference(
-        activity.placeId,
-        activity.photoReference
-      );
-      if (cancelled) return;
-      if (!ref) {
-        setFailed(true);
-        setLoading(false);
-        return;
-      }
-
-      const url = await signPhotoUrl(ref);
-      if (cancelled) return;
-      if (!url) {
-        setFailed(true);
-        setLoading(false);
-        return;
-      }
-
-      setPhotoUrl(url);
-      setLoading(false);
-    }
-
-    void loadPhoto().catch(() => {
-      if (!cancelled) {
-        setFailed(true);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activity.photoReference, activity.placeId]);
+  const {
+    data: photoUrl,
+    isPending,
+    isError,
+  } = useActivityPhotoQuery(activity.placeId, activity.photoReference);
+  const [imgFailed, setImgFailed] = useState(false);
+  const failed = isError || imgFailed || (!isPending && !photoUrl);
 
   return (
     <div className="bg-popover w-56 overflow-hidden rounded-md">
@@ -223,12 +155,12 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
           src={photoUrl}
           alt={activity.name}
           className="mb-2 h-28 w-full rounded object-cover"
-          onError={() => setFailed(true)}
+          onError={() => setImgFailed(true)}
         />
       ) : (
         <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-zinc-100 text-zinc-500">
           <span className="inline-flex items-center gap-1 text-xs font-medium">
-            {loading ? (
+            {isPending ? (
               <>Loading photo…</>
             ) : (
               <>

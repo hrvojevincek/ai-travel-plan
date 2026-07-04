@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { user } from "@/db/schema";
-import { useTestDb } from "./db";
+import { useTestDb } from "@/test/helpers/db";
 
 describe("test db", () => {
   it("boots PGLite, runs migrations, and round-trips a user row", async () => {
