@@ -5,7 +5,6 @@ import type { PartialTrip } from "./trip-view";
 import { TripView } from "./trip-view";
 
 vi.mock("@/features/maps", () => ({
-  hasMapsApiKey: () => false,
   TripMap: () => <div data-testid="trip-map">Trip map</div>,
 }));
 
