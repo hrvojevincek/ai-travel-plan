@@ -150,7 +150,6 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
   return (
     <div className="bg-popover w-56 overflow-hidden rounded-md">
       {photoUrl && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photoUrl}
           alt={activity.name}
