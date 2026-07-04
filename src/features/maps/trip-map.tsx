@@ -1,12 +1,13 @@
 "use client";
 
 import {
-  AdvancedMarker,
-  Map as GoogleMap,
-  InfoWindow,
-  Pin,
+  Map,
+  MapControls,
+  MapMarker,
+  MapPopup,
+  MarkerContent,
   useMap,
-} from "@vis.gl/react-google-maps";
+} from "@/components/ui/map";
 import {
   Camera,
   CameraOff,
@@ -15,9 +16,8 @@ import {
   Utensils,
   Wine,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GeneratedActivityTypeT } from "@/features/trips/generate";
-import { getMapId } from "./api-provider";
 
 export interface MapActivity {
   id: string;
@@ -27,7 +27,8 @@ export interface MapActivity {
   dayNumber: number;
   /** Activity category — drives the selected-pin glyph. */
   type?: GeneratedActivityTypeT;
-  /** Google Places photo reference — when present, InfoWindow lazy-loads it. */
+  placeId?: string | null;
+  /** Google Places photo reference — when present, popup lazy-loads it. */
   photoReference?: string | null;
 }
 
@@ -38,8 +39,6 @@ interface TripMapProps {
   activities: MapActivity[];
   selectedActivityId: string | null;
   onSelectActivity: (id: string | null) => void;
-  /** Map ID for styling and AdvancedMarker support. Defaults to env. */
-  mapId?: string;
 }
 
 export function TripMap({
@@ -49,52 +48,55 @@ export function TripMap({
   activities,
   selectedActivityId,
   onSelectActivity,
-  mapId = getMapId(),
 }: TripMapProps) {
-  const center = useMemo(() => {
+  const suppressMapClickRef = useRef(false);
+  const center = useMemo((): [number, number] => {
     if (destinationLat != null && destinationLng != null) {
-      return { lat: destinationLat, lng: destinationLng };
+      return [destinationLng, destinationLat];
     }
     if (activities.length > 0) {
-      return { lat: activities[0].latitude, lng: activities[0].longitude };
+      return [activities[0].longitude, activities[0].latitude];
     }
-    return { lat: 0, lng: 0 };
+    return [0, 0];
   }, [destinationLat, destinationLng, activities]);
 
+  const zoom = activities.length > 0 ? 12 : 5;
   const selected = activities.find((a) => a.id === selectedActivityId) ?? null;
 
   return (
     <div className="relative h-full w-full">
-      <GoogleMap
-        defaultCenter={center}
-        defaultZoom={activities.length > 0 ? 12 : 5}
-        mapId={mapId}
-        gestureHandling="greedy"
-        disableDefaultUI={false}
-        clickableIcons={false}
-        onClick={() => onSelectActivity(null)}
-      >
+      <Map center={center} zoom={zoom}>
+        <MapClickHandler
+          suppressRef={suppressMapClickRef}
+          onClick={() => onSelectActivity(null)}
+        />
         <BoundsFitter activities={activities} fallbackCenter={center} />
+        <MapControls />
         {activities.map((a) => (
           <ActivityMarker
             key={a.id}
             activity={a}
             isSelected={a.id === selectedActivityId}
+            suppressRef={suppressMapClickRef}
             onClick={() => onSelectActivity(a.id)}
           />
         ))}
         {selected && (
-          <InfoWindow
-            position={{ lat: selected.latitude, lng: selected.longitude }}
-            // Clears the scale-1.4 Pin (~56px) + day-number badge (~7px) with
-            // a few px of breathing room above.
-            pixelOffset={[0, -64]}
-            onCloseClick={() => onSelectActivity(null)}
+          <MapPopup
+            longitude={selected.longitude}
+            latitude={selected.latitude}
+            offset={[0, -64]}
+            closeButton
+            closeOnClick={false}
+            onClose={() => onSelectActivity(null)}
           >
-            <ActivityInfoContent key={selected.id} activity={selected} />
-          </InfoWindow>
+            <ActivityInfoContent
+              key={`${selected.id}-${selected.photoReference ?? "none"}-${selected.placeId ?? "none"}`}
+              activity={selected}
+            />
+          </MapPopup>
         )}
-      </GoogleMap>
+      </Map>
       {activities.length === 0 && destination && (
         <div className="pointer-events-none absolute top-3 left-3 rounded-md bg-white/90 px-2 py-1 text-xs text-zinc-700 shadow-sm">
           <span className="inline-flex items-center gap-1">
@@ -107,58 +109,119 @@ export function TripMap({
   );
 }
 
+function MapClickHandler({
+  onClick,
+  suppressRef,
+}: {
+  onClick: () => void;
+  suppressRef: React.RefObject<boolean>;
+}) {
+  const { map, isLoaded } = useMap();
+
+  useEffect(() => {
+    if (!map || !isLoaded) return;
+    const handler = () => {
+      if (suppressRef.current) return;
+      onClick();
+    };
+    map.on("click", handler);
+    return () => {
+      map.off("click", handler);
+    };
+  }, [map, isLoaded, onClick, suppressRef]);
+
+  return null;
+}
+
+async function resolvePhotoReference(
+  photoReference: string | null | undefined,
+  placeId: string | null | undefined
+): Promise<string | null> {
+  if (photoReference) return photoReference;
+  if (!placeId) return null;
+
+  const params = new URLSearchParams({ placeId });
+  const res = await fetch(`/api/maps/photo-ref?${params.toString()}`);
+  if (!res.ok) return null;
+  const data = (await res.json()) as { photoReference?: string | null };
+  return data.photoReference ?? null;
+}
+
 function ActivityInfoContent({ activity }: { activity: MapActivity }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(
+    Boolean(activity.photoReference || activity.placeId)
+  );
   const showPhoto = Boolean(photoUrl && failedUrl !== photoUrl);
 
   useEffect(() => {
-    if (!activity.photoReference) return;
+    let cancelled = false;
 
-    const controller = new AbortController();
-    const params = new URLSearchParams({
-      photoReference: activity.photoReference,
+    async function loadPhoto() {
+      const ref = await resolvePhotoReference(
+        activity.photoReference,
+        activity.placeId
+      );
+      if (cancelled) return;
+      if (!ref) {
+        setLoading(false);
+        return;
+      }
+
+      const params = new URLSearchParams({ photoReference: ref });
+      const signRes = await fetch(`/api/maps/photo-sign?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (cancelled) return;
+      if (!signRes.ok) {
+        setLoading(false);
+        return;
+      }
+
+      const { ts, sig } = (await signRes.json()) as {
+        ts?: string;
+        sig?: string;
+      };
+      if (!ts || !sig) {
+        setLoading(false);
+        return;
+      }
+
+      setPhotoUrl(buildPlacePhotoUrl(ref, ts, sig));
+      setLoading(false);
+    }
+
+    void loadPhoto().catch(() => {
+      if (!cancelled) setLoading(false);
     });
 
-    fetch(`/api/maps/photo-sign?${params.toString()}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`sign failed: ${res.status}`);
-        return (await res.json()) as { ts?: string; sig?: string };
-      })
-      .then(({ ts, sig }) => {
-        if (!ts || !sig) {
-          setPhotoUrl(null);
-          return;
-        }
-        setPhotoUrl(buildPlacePhotoUrl(activity.photoReference, ts, sig));
-      })
-      .catch(() => {
-        setPhotoUrl(null);
-      });
-
-    return () => controller.abort();
-  }, [activity.photoReference]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activity.photoReference, activity.placeId]);
 
   return (
-    <div className="w-56 overflow-hidden">
+    <div className="bg-popover w-56 overflow-hidden rounded-md">
       {showPhoto ? (
-        // Google InfoWindow content does not need Next/Image optimization here.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photoUrl ?? undefined}
           alt={activity.name}
-          loading="lazy"
           className="mb-2 h-28 w-full rounded object-cover"
           onError={() => setFailedUrl(photoUrl)}
         />
       ) : (
         <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-zinc-100 text-zinc-500">
           <span className="inline-flex items-center gap-1 text-xs font-medium">
-            <CameraOff className="h-3.5 w-3.5" />
-            No photo available
+            {loading ? (
+              <>Loading photo…</>
+            ) : (
+              <>
+                <CameraOff className="h-3.5 w-3.5" />
+                No photo available
+              </>
+            )}
           </span>
         </div>
       )}
@@ -174,17 +237,11 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
   );
 }
 
-/**
- * Constructs a Google Places Photo API URL from a stored `photo_reference`.
- * The image is billed only when the browser actually fetches it (on click +
- * InfoWindow mount), so we never pay for viewers who don't interact.
- */
 function buildPlacePhotoUrl(
-  photoReference: string | null | undefined,
+  photoReference: string,
   ts: string,
   sig: string
-): string | null {
-  if (!photoReference) return null;
+): string {
   const params = new URLSearchParams({
     photoReference,
     ts,
@@ -207,84 +264,106 @@ const TYPE_ICON: Record<
   activity: Camera,
 };
 
-/**
- * Two visual tiers:
- *  - unselected → small colored dot, recedes on a busy map
- *  - selected   → full Pin with type glyph + day-number badge
- * See KRE-34.
- */
 function ActivityMarker({
   activity,
   isSelected,
   onClick,
+  suppressRef,
 }: {
   activity: MapActivity;
   isSelected: boolean;
   onClick: () => void;
+  suppressRef: React.RefObject<boolean>;
 }) {
-  const position = { lat: activity.latitude, lng: activity.longitude };
+  const handleClick = (e: MouseEvent) => {
+    e.stopPropagation();
+    suppressRef.current = true;
+    onClick();
+    requestAnimationFrame(() => {
+      suppressRef.current = false;
+    });
+  };
 
   if (!isSelected) {
     return (
-      <AdvancedMarker
-        position={position}
-        onClick={onClick}
-        title={activity.name}
+      <MapMarker
+        longitude={activity.longitude}
+        latitude={activity.latitude}
+        onClick={handleClick}
       >
-        <div
-          className="h-3 w-3 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125"
-          style={{ backgroundColor: PIN_BG }}
-        />
-      </AdvancedMarker>
+        <MarkerContent>
+          <div
+            title={activity.name}
+            className="h-3 w-3 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125"
+            style={{ backgroundColor: PIN_BG }}
+          />
+        </MarkerContent>
+      </MapMarker>
     );
   }
 
   const Glyph = activity.type ? TYPE_ICON[activity.type] : null;
 
   return (
-    <AdvancedMarker position={position} onClick={onClick} zIndex={1000}>
-      <div className="relative">
-        <Pin
-          background={PIN_BG}
-          borderColor={PIN_BORDER}
-          glyphColor="#fff"
-          scale={1.4}
-        >
-          {Glyph && <Glyph className="h-4 w-4 text-white" />}
-        </Pin>
-        <span className="bg-primary absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white px-1 text-[10px] leading-none font-bold text-white shadow">
-          {activity.dayNumber}
-        </span>
-      </div>
-    </AdvancedMarker>
+    <MapMarker
+      longitude={activity.longitude}
+      latitude={activity.latitude}
+      onClick={handleClick}
+    >
+      <MarkerContent>
+        <div className="relative cursor-pointer">
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-full border-2 shadow-lg"
+            style={{ backgroundColor: PIN_BG, borderColor: PIN_BORDER }}
+          >
+            {Glyph && <Glyph className="h-5 w-5 text-white" />}
+          </div>
+          <div
+            className="mx-auto h-0 w-0 border-x-10 border-t-14 border-x-transparent"
+            style={{ borderTopColor: PIN_BG }}
+          />
+          <span className="bg-primary absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white px-1 text-[10px] leading-none font-bold text-white shadow">
+            {activity.dayNumber}
+          </span>
+        </div>
+      </MarkerContent>
+    </MapMarker>
   );
 }
 
-/**
- * When activities change, pan/zoom the map to fit all pins. Runs once per
- * activity-set change; selection changes are handled by panTo elsewhere.
- */
 function BoundsFitter({
   activities,
   fallbackCenter,
 }: {
   activities: MapActivity[];
-  fallbackCenter: { lat: number; lng: number };
+  fallbackCenter: [number, number];
 }) {
-  const map = useMap();
+  const { map, isLoaded } = useMap();
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || !isLoaded) return;
     if (activities.length === 0) {
       map.setCenter(fallbackCenter);
       return;
     }
-    const bounds = new google.maps.LatLngBounds();
+    let minLng = Number.POSITIVE_INFINITY;
+    let minLat = Number.POSITIVE_INFINITY;
+    let maxLng = Number.NEGATIVE_INFINITY;
+    let maxLat = Number.NEGATIVE_INFINITY;
     for (const a of activities) {
-      bounds.extend({ lat: a.latitude, lng: a.longitude });
+      minLng = Math.min(minLng, a.longitude);
+      minLat = Math.min(minLat, a.latitude);
+      maxLng = Math.max(maxLng, a.longitude);
+      maxLat = Math.max(maxLat, a.latitude);
     }
-    map.fitBounds(bounds, 64);
-  }, [map, activities, fallbackCenter]);
+    map.fitBounds(
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+      { padding: 64 }
+    );
+  }, [map, isLoaded, activities, fallbackCenter]);
 
   return null;
 }

@@ -3,11 +3,11 @@
 import { Clock, MapPin, RefreshCw, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { hasMapsApiKey, type MapActivity, TripMap } from "@/features/maps";
+import { type MapActivity, TripMap } from "@/features/maps";
 import { cn } from "@/lib/utils";
 import type { GeneratedActivityTypeT, GeneratedTripT } from "../generate";
 
@@ -68,10 +68,7 @@ export function TripView({
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(1);
-
-  useEffect(() => {
-    setSelectedDay((prev) => Math.min(Math.max(prev, 1), expectedDays));
-  }, [expectedDays]);
+  const activeDay = Math.min(Math.max(selectedDay, 1), expectedDays);
 
   const mapActivities: MapActivity[] = [];
   for (const d of days) {
@@ -91,13 +88,12 @@ export function TripView({
           longitude: a.longitude,
           dayNumber: d.dayNumber ?? 0,
           type: a.type,
+          placeId: a.placeId ?? null,
           photoReference: a.photoReference ?? null,
         });
       }
     });
   }
-
-  const mapsEnabled = hasMapsApiKey();
 
   return (
     <div className="flex min-h-screen w-full flex-col sm:flex-row">
@@ -117,7 +113,7 @@ export function TripView({
         />
 
         <Tabs
-          value={String(selectedDay)}
+          value={String(activeDay)}
           onValueChange={(value) => {
             setSelectedDay(Number(value));
             setSelectedId(null);
@@ -156,19 +152,15 @@ export function TripView({
         </Tabs>
       </aside>
 
-      <section className="relative flex-1 bg-muted/30 sm:sticky sm:top-0 sm:h-screen">
-        {mapsEnabled ? (
-          <TripMap
-            destination={title}
-            destinationLat={destinationLat}
-            destinationLng={destinationLng}
-            activities={mapActivities}
-            selectedActivityId={selectedId}
-            onSelectActivity={setSelectedId}
-          />
-        ) : (
-          <MapFallback destination={title} />
-        )}
+      <section className="bg-muted/30 relative flex-1 sm:sticky sm:top-0 sm:h-screen">
+        <TripMap
+          destination={title}
+          destinationLat={destinationLat}
+          destinationLng={destinationLng}
+          activities={mapActivities}
+          selectedActivityId={selectedId}
+          onSelectActivity={setSelectedId}
+        />
       </section>
     </div>
   );
@@ -214,7 +206,7 @@ function ActivitiesHeader({
       <h1 className="flex w-full align-middle text-4xl font-extrabold capitalize">
         View {duration} day itinerary
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">{title}</p>
+      <p className="text-muted-foreground mt-2 text-sm">{title}</p>
     </>
   );
 }
@@ -230,12 +222,12 @@ function OverviewCard({
 }) {
   return (
     <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
+      <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-zinc-500 uppercase">
+        <Sparkles className="text-primary h-3.5 w-3.5" />
         {duration}-day itinerary · {destination}
       </div>
       {summary ? (
-        <p className="mt-2 text-pretty text-sm text-zinc-700">{summary}</p>
+        <p className="mt-2 text-sm text-pretty text-zinc-700">{summary}</p>
       ) : (
         <div className="mt-2 space-y-2">
           <Skeleton className="h-4 w-full" />
@@ -349,7 +341,7 @@ function ActivityCard({
             onSwap();
           }}
           aria-label="Swap activity"
-          className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 opacity-0 transition hover:bg-zinc-100 hover:text-zinc-700 group-hover:opacity-100"
+          className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 opacity-0 transition group-hover:opacity-100 hover:bg-zinc-100 hover:text-zinc-700"
         >
           <RefreshCw className="h-4 w-4" />
         </button>
@@ -363,7 +355,7 @@ function ActivityCard({
             </span>
           )}
           {activity.type && (
-            <span className="text-xs uppercase tracking-wide text-zinc-400">
+            <span className="text-xs tracking-wide text-zinc-400 uppercase">
               {typeLabel[activity.type]}
             </span>
           )}
@@ -373,11 +365,11 @@ function ActivityCard({
             </span>
           )}
         </div>
-        <div className="mt-1 text-lg font-semibold capitalize tracking-tight text-primary">
+        <div className="text-primary mt-1 text-lg font-semibold tracking-tight capitalize">
           {activity.name?.toLowerCase() ?? <Skeleton className="h-5 w-2/3" />}
         </div>
         {activity.description && (
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             {activity.description}
           </p>
         )}
@@ -401,22 +393,6 @@ function ActivitySkeleton() {
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-5 w-2/3" />
         <Skeleton className="h-3 w-5/6" />
-      </div>
-    </div>
-  );
-}
-
-function MapFallback({ destination }: { destination: string }) {
-  return (
-    <div className="relative h-full w-full bg-linear-to-br from-primary/20 via-primary/5 to-background">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,var(--color-primary),transparent_60%)] opacity-30" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,var(--color-primary),transparent_50%)] opacity-20" />
-      <div className="absolute bottom-6 left-6 right-6 text-white drop-shadow">
-        <div className="text-xs font-medium uppercase tracking-wide">Map</div>
-        <div className="mt-1 text-2xl font-bold capitalize">{destination}</div>
-        <div className="mt-1 text-xs text-white/70">
-          Set NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY to enable the interactive map.
-        </div>
       </div>
     </div>
   );
