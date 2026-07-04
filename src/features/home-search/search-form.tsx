@@ -50,7 +50,6 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
 
   useEffect(() => {
     if (!generateMutation.isPending) {
-      setLoadingStep(0);
       return;
     }
 
@@ -64,6 +63,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
   }, [generateMutation.isPending, loadingSteps.length]);
 
   const submit = form.handleSubmit((values) => {
+    setLoadingStep(0);
     generateMutation.mutate({
       destination: values.destination,
       duration: values.duration,
@@ -165,7 +165,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
                     {...field}
                     placeholder="Vegan, no museums, local markets..."
                     rows={3}
-                    className="resize-none border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30"
+                    className="text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/30 resize-none border-white/30 bg-white/95 shadow-sm"
                     disabled={isPending}
                   />
                 </FormControl>

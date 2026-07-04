@@ -6,6 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
+    "includes": ["**", "!drizzle/meta/**"],
     "ignoreUnknown": false
   },
   "formatter": {
@@ -20,6 +21,9 @@
       "recommended": true,
       "performance": {
         "noImgElement": "off"
+      },
+      "suspicious": {
+        "noUnknownAtRules": "off"
       }
     }
   },
@@ -33,6 +37,14 @@
   "json": {
     "formatter": {
       "trailingCommas": "none"
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": true
+    },
+    "linter": {
+      "enabled": true
     }
   },
   "assist": {

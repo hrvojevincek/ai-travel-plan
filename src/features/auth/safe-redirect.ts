@@ -29,7 +29,6 @@ export function safeInternalRedirect(path: string | undefined | null): string {
   if (!decoded.startsWith("/")) return FALLBACK;
   if (decoded.startsWith("//")) return FALLBACK;
   if (decoded.includes("\\")) return FALLBACK;
-  // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1F\x7F]/.test(decoded)) return FALLBACK;
 
   return path;
