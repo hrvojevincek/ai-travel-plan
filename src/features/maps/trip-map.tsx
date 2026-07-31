@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Camera,
-  CameraOff,
-  Coffee,
-  MapPin,
-  Utensils,
-  Wine,
-} from "lucide-react";
+import { CameraOff, MapPin } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Map,
@@ -18,6 +11,7 @@ import {
   useMap,
 } from "@/components/ui/map";
 import type { GeneratedActivityTypeT } from "@/features/trips/generate";
+import { cn } from "@/lib/utils";
 import { useActivityPhotoQuery } from "./hooks/use-activity-photo";
 
 export interface MapActivity {
@@ -26,7 +20,7 @@ export interface MapActivity {
   latitude: number;
   longitude: number;
   dayNumber: number;
-  /** Activity category — drives the selected-pin glyph. */
+  /** Activity category. */
   type?: GeneratedActivityTypeT;
   placeId?: string | null;
   /** Google Places photo reference — when present, popup lazy-loads it. */
@@ -72,7 +66,8 @@ export function TripMap({
           onClick={() => onSelectActivity(null)}
         />
         <BoundsFitter activities={activities} fallbackCenter={center} />
-        <MapControls />
+        <FocusSelected activity={selected} />
+        <MapControls show3D />
         {activities.map((a) => (
           <ActivityMarker
             key={a.id}
@@ -86,7 +81,7 @@ export function TripMap({
           <MapPopup
             longitude={selected.longitude}
             latitude={selected.latitude}
-            offset={[0, -64]}
+            offset={[0, -12]}
             closeButton
             closeOnClick={false}
             onClose={() => onSelectActivity(null)}
@@ -148,17 +143,17 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
   const failed = isError || imgFailed || (!isPending && !photoUrl);
 
   return (
-    <div className="bg-popover w-56 overflow-hidden rounded-md">
+    <div className="bg-popover w-48 overflow-hidden rounded-md">
       {photoUrl && !failed ? (
         <img
           src={photoUrl}
           alt={activity.name}
-          className="mb-2 h-28 w-full rounded object-cover"
+          className="mb-1.5 h-24 w-full rounded object-cover"
           onError={() => setImgFailed(true)}
         />
       ) : (
-        <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-zinc-100 text-zinc-500">
-          <span className="inline-flex items-center gap-1 text-xs font-medium">
+        <div className="mb-1.5 flex h-24 w-full items-center justify-center rounded bg-zinc-100 text-zinc-500">
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium">
             {isPending ? (
               <>Loading photo…</>
             ) : (
@@ -171,10 +166,10 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
         </div>
       )}
       <div className="px-1 py-0.5">
-        <div className="text-xs tracking-wide text-zinc-500 uppercase">
+        <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
           Day {activity.dayNumber}
         </div>
-        <div className="text-sm font-semibold capitalize">
+        <div className="text-xs font-semibold capitalize">
           {activity.name.toLowerCase()}
         </div>
       </div>
@@ -183,17 +178,7 @@ function ActivityInfoContent({ activity }: { activity: MapActivity }) {
 }
 
 const PIN_BG = "#2563eb";
-const PIN_BORDER = "#1e40af";
-
-const TYPE_ICON: Record<
-  GeneratedActivityTypeT,
-  React.ComponentType<{ className?: string }>
-> = {
-  breakfast: Coffee,
-  lunch: Utensils,
-  dinner: Wine,
-  activity: Camera,
-};
+const PIN_SELECTED = "#1d4ed8";
 
 function ActivityMarker({
   activity,
@@ -215,26 +200,6 @@ function ActivityMarker({
     });
   };
 
-  if (!isSelected) {
-    return (
-      <MapMarker
-        longitude={activity.longitude}
-        latitude={activity.latitude}
-        onClick={handleClick}
-      >
-        <MarkerContent>
-          <div
-            title={activity.name}
-            className="h-3 w-3 cursor-pointer rounded-full border-2 border-white shadow-md transition-transform hover:scale-125"
-            style={{ backgroundColor: PIN_BG }}
-          />
-        </MarkerContent>
-      </MapMarker>
-    );
-  }
-
-  const Glyph = activity.type ? TYPE_ICON[activity.type] : null;
-
   return (
     <MapMarker
       longitude={activity.longitude}
@@ -242,21 +207,16 @@ function ActivityMarker({
       onClick={handleClick}
     >
       <MarkerContent>
-        <div className="relative cursor-pointer">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-full border-2 shadow-lg"
-            style={{ backgroundColor: PIN_BG, borderColor: PIN_BORDER }}
-          >
-            {Glyph && <Glyph className="h-5 w-5 text-white" />}
-          </div>
-          <div
-            className="mx-auto h-0 w-0 border-x-10 border-t-14 border-x-transparent"
-            style={{ borderTopColor: PIN_BG }}
-          />
-          <span className="bg-primary absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white px-1 text-[10px] leading-none font-bold text-white shadow">
-            {activity.dayNumber}
-          </span>
-        </div>
+        <div
+          title={activity.name}
+          className={cn(
+            "cursor-pointer rounded-full border-2 border-white shadow-md transition-all",
+            isSelected
+              ? "h-4 w-4 scale-110 ring-2 ring-primary ring-offset-1 shadow-lg"
+              : "h-3 w-3 hover:scale-125"
+          )}
+          style={{ backgroundColor: isSelected ? PIN_SELECTED : PIN_BG }}
+        />
       </MarkerContent>
     </MapMarker>
   );
@@ -295,6 +255,24 @@ function BoundsFitter({
       { padding: 64 }
     );
   }, [map, isLoaded, activities, fallbackCenter]);
+
+  return null;
+}
+
+function FocusSelected({ activity }: { activity: MapActivity | null }) {
+  const { map, isLoaded } = useMap();
+  const id = activity?.id ?? null;
+  const lng = activity?.longitude;
+  const lat = activity?.latitude;
+
+  useEffect(() => {
+    if (!map || !isLoaded || id == null || lng == null || lat == null) return;
+    map.flyTo({
+      center: [lng, lat],
+      zoom: Math.max(map.getZoom(), 14),
+      duration: 800,
+    });
+  }, [map, isLoaded, id, lng, lat]);
 
   return null;
 }

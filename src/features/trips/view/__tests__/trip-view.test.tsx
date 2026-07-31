@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { QueryWrapper } from "@/test/helpers/query-wrapper";
 import type { PartialTrip } from "../trip-view";
 import { TripView } from "../trip-view";
 
@@ -50,7 +51,11 @@ const tripFixture: PartialTrip = {
 
 describe("TripView day tabs", () => {
   it("shows Day 1 content by default", () => {
-    render(<TripView trip={tripFixture} expectedDays={3} destination="Lisbon" />);
+    render(
+      <QueryWrapper>
+        <TripView trip={tripFixture} expectedDays={3} destination="Lisbon" />
+      </QueryWrapper>
+    );
 
     expect(
       screen.getByRole("tab", { name: "Day 1", selected: true })
@@ -61,7 +66,11 @@ describe("TripView day tabs", () => {
 
   it("switches visible itinerary content when another day tab is clicked", async () => {
     const user = userEvent.setup();
-    render(<TripView trip={tripFixture} expectedDays={3} destination="Lisbon" />);
+    render(
+      <QueryWrapper>
+        <TripView trip={tripFixture} expectedDays={3} destination="Lisbon" />
+      </QueryWrapper>
+    );
 
     await user.click(screen.getByRole("tab", { name: "Day 2" }));
     expect(

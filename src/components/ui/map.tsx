@@ -17,7 +17,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
+import { X, Minus, Plus, Locate, Maximize, Loader2, Box } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -192,6 +192,8 @@ type MapProps = {
   onViewportChange?: (viewport: MapViewport) => void;
   /** Show a loading indicator on the map */
   loading?: boolean;
+  /** Show CARTO / OSM attribution in the corner (default: false) */
+  showAttribution?: boolean;
 } & Omit<MapLibreGL.MapOptions, "container" | "style">;
 
 function DefaultLoader() {
@@ -227,6 +229,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     viewport,
     onViewportChange,
     loading = false,
+    showAttribution = false,
     ...props
   },
   ref
@@ -282,9 +285,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       container: containerRef.current,
       style: initialStyle,
       renderWorldCopies: false,
-      attributionControl: {
-        compact: true,
-      },
+      attributionControl: showAttribution ? { compact: true } : false,
       ...props,
       ...viewport,
     });
@@ -791,6 +792,8 @@ type MapControlsProps = {
   showLocate?: boolean;
   /** Show fullscreen toggle button (default: false) */
   showFullscreen?: boolean;
+  /** Show 3D tilt toggle button (default: false) */
+  show3D?: boolean;
   /** Additional CSS classes for the controls container */
   className?: string;
   /** Callback with user coordinates when located */
@@ -801,7 +804,7 @@ const positionClasses = {
   "top-left": "top-2 left-2",
   "top-right": "top-2 right-2",
   "bottom-left": "bottom-2 left-2",
-  "bottom-right": "bottom-10 right-2",
+  "bottom-right": "bottom-2 right-2",
 };
 
 function ControlGroup({ children }: { children: React.ReactNode }) {
@@ -848,6 +851,7 @@ function MapControls({
   showCompass = false,
   showLocate = false,
   showFullscreen = false,
+  show3D = false,
   className,
   onLocate,
 }: MapControlsProps) {
@@ -916,6 +920,7 @@ function MapControls({
           <ControlButton onClick={handleZoomOut} label="Zoom out">
             <Minus className="size-4" />
           </ControlButton>
+          {show3D && <ThreeDToggleButton />}
         </ControlGroup>
       )}
       {showCompass && (
@@ -946,6 +951,38 @@ function MapControls({
         </ControlGroup>
       )}
     </div>
+  );
+}
+
+const PITCH_3D = 60;
+
+function ThreeDToggleButton() {
+  const { map } = useMap();
+  const [is3D, setIs3D] = useState(false);
+
+  useEffect(() => {
+    if (!map) return;
+    const sync = () => setIs3D(map.getPitch() > 0);
+    map.on("pitch", sync);
+    sync();
+    return () => {
+      map.off("pitch", sync);
+    };
+  }, [map]);
+
+  const handleToggle = useCallback(() => {
+    if (!map) return;
+    const enable3D = map.getPitch() === 0;
+    map.easeTo({ pitch: enable3D ? PITCH_3D : 0, duration: 300 });
+  }, [map]);
+
+  return (
+    <ControlButton
+      onClick={handleToggle}
+      label={is3D ? "Switch to 2D view" : "Switch to 3D view"}
+    >
+      <Box className={cn("size-4", is3D && "text-primary")} />
+    </ControlButton>
   );
 }
 
