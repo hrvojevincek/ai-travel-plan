@@ -1,7 +1,7 @@
 import {
   GeneratedTripResponse,
   type GeneratedTripResponseT,
-} from "../generate";
+} from "../generate-schema";
 
 export async function fetchGeneratedTrip(input: {
   destination: string;

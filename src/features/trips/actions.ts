@@ -11,7 +11,7 @@ import {
   type GeneratedActivityTypeT,
   GeneratedTripResponse,
   toCreateTripInput,
-} from "./generate";
+} from "./generate-schema";
 import { getDestinationImage } from "./image";
 import { swapActivity } from "./swap";
 

@@ -1,4 +1,4 @@
-import type { GeneratedTripT } from "./generate";
+import type { GeneratedTripT } from "./generate-schema";
 
 export const mockTrip: GeneratedTripT = {
   destination: "Lisbon, Portugal",

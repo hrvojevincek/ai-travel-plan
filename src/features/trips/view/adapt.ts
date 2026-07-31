@@ -1,5 +1,5 @@
 import type { TripWithDays } from "../data";
-import type { GeneratedActivityTypeT } from "../generate";
+import type { GeneratedActivityTypeT } from "../generate-schema";
 import type { PartialTrip } from "./trip-view";
 
 const ACTIVITIES_PER_DAY = 7;

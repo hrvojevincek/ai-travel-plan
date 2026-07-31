@@ -1,5 +1,4 @@
 export * from "./data";
-export * from "./generate";
+export * from "./generate-schema";
 export * from "./image";
 export * from "./schemas";
-export * from "./swap";

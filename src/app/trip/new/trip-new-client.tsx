@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { GeneratedTripResponseT } from "@/features/trips/generate";
+import type { GeneratedTripResponseT } from "@/features/trips/generate-schema";
 import { useGeneratedTripQuery } from "@/features/trips/hooks/use-generate-trip";
 import { useSaveTripMutation } from "@/features/trips/hooks/use-save-trip";
 import { mockTrip } from "@/features/trips/mock";

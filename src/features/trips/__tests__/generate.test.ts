@@ -129,6 +129,28 @@ describe("generateTrip", () => {
     expect(serialized).toContain("3-day");
   });
 
+  it("sends a static system prompt separate from the user prompt", async () => {
+    const model = mockObjectModel(makeFixture(1));
+    await generateTrip({ destination: "Lisbon", duration: 1, model });
+
+    const call = model.doGenerateCalls[0];
+    const serialized = JSON.stringify(call);
+    expect(serialized).toMatch(
+      /geographically clustered|expert travel planner/i
+    );
+  });
+
+  it("rejects when days.length does not match duration", async () => {
+    // Model emits 2 days but caller asked for 1
+    await expect(
+      generateTrip({
+        destination: "Lisbon",
+        duration: 1,
+        model: mockObjectModel(makeFixture(2)),
+      })
+    ).rejects.toThrow();
+  });
+
   it("propagates provider errors", async () => {
     const failing = new MockLanguageModelV3({
       doGenerate: async () => {

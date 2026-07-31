@@ -1,72 +1,37 @@
-import { openai } from "@ai-sdk/openai";
-import { generateObject, type LanguageModel } from "ai";
+import "server-only";
+
+import type { LanguageModel } from "ai";
 import { z } from "zod";
-import type { ActivityTypeValue, CreateTripInputT } from "./schemas";
+import { generateObjectResilient } from "@/lib/llm";
+import {
+  ACTIVITIES_PER_DAY,
+  GeneratedActivity,
+  type GeneratedActivityTypeT,
+  type GeneratedTripT,
+  makeGeneratedTripSchema,
+} from "./generate-schema";
 
-export const ACTIVITIES_PER_DAY = 7;
-
-export const GeneratedActivityType = z.enum([
-  "breakfast",
-  "lunch",
-  "dinner",
-  "activity",
-]);
-export type GeneratedActivityTypeT = z.infer<typeof GeneratedActivityType>;
-
-export const GeneratedActivity = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-  type: GeneratedActivityType,
-  durationMinutes: z.number().int().positive(),
-  address: z.string().min(1),
-  estimatedCost: z.number().nonnegative(),
-});
-export type GeneratedActivityT = z.infer<typeof GeneratedActivity>;
-
-export const GeneratedDay = z.object({
-  dayNumber: z.number().int().min(1),
-  activities: z.array(GeneratedActivity).length(ACTIVITIES_PER_DAY),
-});
-export type GeneratedDayT = z.infer<typeof GeneratedDay>;
-
-export const GeneratedTrip = z.object({
-  destination: z.string().min(1),
-  summary: z.string().min(1),
-  totalEstimatedCost: z.number().nonnegative(),
-  days: z.array(GeneratedDay).min(1),
-});
-export type GeneratedTripT = z.infer<typeof GeneratedTrip>;
-
-// Extends the AI-produced trip with server-resolved place metadata on each
-// activity. All four fields are nullish because:
-//  - Places lookups can legitimately fail per-address,
-//  - older callers (e.g. mock trip) don't carry them at all,
-//  - not every place has a photo.
-// Kept separate from GeneratedTrip so the AI prompt isn't told to produce
-// coords/place_ids itself.
-export const GeneratedResponseActivity = GeneratedActivity.extend({
-  latitude: z.number().min(-90).max(90).nullish(),
-  longitude: z.number().min(-180).max(180).nullish(),
-  placeId: z.string().nullish(),
-  photoReference: z.string().nullish(),
-});
-export type GeneratedResponseActivityT = z.infer<
-  typeof GeneratedResponseActivity
->;
-
-export const GeneratedResponseDay = z.object({
-  dayNumber: z.number().int().min(1),
-  activities: z.array(GeneratedResponseActivity).length(ACTIVITIES_PER_DAY),
-});
-export type GeneratedResponseDayT = z.infer<typeof GeneratedResponseDay>;
-
-export const GeneratedTripResponse = z.object({
-  destination: z.string().min(1),
-  summary: z.string().min(1),
-  totalEstimatedCost: z.number().nonnegative(),
-  days: z.array(GeneratedResponseDay).min(1),
-});
-export type GeneratedTripResponseT = z.infer<typeof GeneratedTripResponse>;
+export type {
+  GeneratedActivityT,
+  GeneratedActivityTypeT,
+  GeneratedDayT,
+  GeneratedResponseActivityT,
+  GeneratedResponseDayT,
+  GeneratedTripResponseT,
+  GeneratedTripT,
+} from "./generate-schema";
+export {
+  ACTIVITIES_PER_DAY,
+  GeneratedActivity,
+  GeneratedActivityType,
+  GeneratedDay,
+  GeneratedResponseActivity,
+  GeneratedResponseDay,
+  GeneratedTrip,
+  GeneratedTripResponse,
+  makeGeneratedTripSchema,
+  toCreateTripInput,
+} from "./generate-schema";
 
 export interface GenerateTripOpts {
   destination: string;
@@ -75,49 +40,128 @@ export interface GenerateTripOpts {
   model?: LanguageModel;
 }
 
+export const TRIP_SYSTEM_PROMPT = [
+  "You are an expert travel planner.",
+  "Rules (always follow):",
+  "- Real, searchable venues only — no fictional places.",
+  "- Keep each day's activities geographically clustered; allow 15-30 min transit between stops.",
+  "- Total scheduled time per day (durations + transit) must not exceed 12 hours.",
+  "- Meals must be real restaurants/cafés appropriate for that meal slot.",
+  "- Addresses must be complete enough to find on Google Maps.",
+].join("\n");
+
 export async function generateTrip(
   opts: GenerateTripOpts
 ): Promise<GeneratedTripT> {
-  const model = opts.model ?? openai("gpt-4o-mini");
-  const { object } = await generateObject({
-    model,
-    schema: GeneratedTrip,
+  const { object } = await generateObjectResilient({
+    schema: makeGeneratedTripSchema(opts.duration),
+    system: TRIP_SYSTEM_PROMPT,
     prompt: buildPrompt(opts),
+    model: opts.model,
+    context: "generateTrip",
   });
   return object;
 }
 
-export function toCreateTripInput(
-  g: GeneratedTripT | GeneratedTripResponseT
-): CreateTripInputT {
-  return {
-    destination: g.destination,
-    summary: g.summary,
-    totalEstimatedCost: g.totalEstimatedCost,
-    imageUrl: null,
-    imageAttribution: null,
-    days: g.days.map((d) => ({
-      dayNumber: d.dayNumber,
-      activities: d.activities.map((a, orderIndex) => ({
-        name: a.name,
-        description: a.description,
-        type: mapActivityType(a.type),
-        durationMinutes: a.durationMinutes,
-        address: a.address,
-        estimatedCost: a.estimatedCost,
-        latitude: "latitude" in a ? (a.latitude ?? null) : null,
-        longitude: "longitude" in a ? (a.longitude ?? null) : null,
-        placeId: "placeId" in a ? (a.placeId ?? null) : null,
-        photoReference:
-          "photoReference" in a ? (a.photoReference ?? null) : null,
-        orderIndex,
-      })),
-    })),
-  };
+/** Slots that failed Places grounding and need an LLM replacement. */
+export interface UngroundedSlot {
+  dayIdx: number;
+  actIdx: number;
+  previousName: string;
+  type: GeneratedActivityTypeT;
 }
 
-function mapActivityType(t: GeneratedActivityTypeT): ActivityTypeValue {
-  return t === "activity" ? "other" : "food";
+const ReplacementBatch = z.object({
+  replacements: z.array(
+    z.object({
+      dayIdx: z.number().int().min(0).describe("0-based day index in the trip"),
+      actIdx: z
+        .number()
+        .int()
+        .min(0)
+        .max(ACTIVITIES_PER_DAY - 1)
+        .describe("0-based activity index within the day"),
+      activity: GeneratedActivity,
+    })
+  ),
+});
+
+/**
+ * Ask the model to replace activities that could not be grounded in Google
+ * Places. Preserves slot types; forbids reusing any name already on the trip.
+ */
+export async function regenerateUngroundedActivities(
+  opts: GenerateTripOpts,
+  trip: GeneratedTripT,
+  failures: UngroundedSlot[]
+): Promise<GeneratedTripT> {
+  if (failures.length === 0) return trip;
+
+  const forbidden = trip.days
+    .flatMap((d) => d.activities.map((a) => a.name))
+    .join(", ");
+
+  const failureLines = failures
+    .map(
+      (f) =>
+        `- dayIdx=${f.dayIdx} actIdx=${f.actIdx} type=${f.type} previous="${f.previousName}"`
+    )
+    .join("\n");
+
+  const schema = ReplacementBatch.extend({
+    replacements: z
+      .array(ReplacementBatch.shape.replacements.element)
+      .length(failures.length),
+  });
+
+  const { object } = await generateObjectResilient({
+    schema,
+    system: TRIP_SYSTEM_PROMPT,
+    prompt: [
+      `Replace ${failures.length} itinerary stop(s) in ${opts.destination} that could not be found on Google Maps.`,
+      "",
+      "Failed slots (return one replacement for each, same dayIdx/actIdx/type):",
+      failureLines,
+      "",
+      `Do NOT reuse any of these existing names: ${forbidden}`,
+      "Each replacement must be a real, different venue with a searchable street address.",
+      opts.preferences?.trim()
+        ? `Traveler preferences: ${opts.preferences}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    model: opts.model,
+    context: "regenerateUngrounded",
+  });
+
+  const next: GeneratedTripT = {
+    ...trip,
+    days: trip.days.map((d) => ({
+      ...d,
+      activities: d.activities.map((a) => ({ ...a })),
+    })),
+  };
+
+  for (const r of object.replacements) {
+    const day = next.days[r.dayIdx];
+    if (!day || !day.activities[r.actIdx]) continue;
+    const expectedType = failures.find(
+      (f) => f.dayIdx === r.dayIdx && f.actIdx === r.actIdx
+    )?.type;
+    if (expectedType && r.activity.type !== expectedType) {
+      r.activity = { ...r.activity, type: expectedType };
+    }
+    day.activities[r.actIdx] = r.activity;
+  }
+
+  next.totalEstimatedCost = next.days.reduce(
+    (sum, d) =>
+      sum + d.activities.reduce((s, a) => s + (a.estimatedCost ?? 0), 0),
+    0
+  );
+
+  return next;
 }
 
 function buildPrompt({
@@ -130,7 +174,7 @@ function buildPrompt({
     : "No special preferences — default to broadly appealing choices.";
 
   return [
-    `You are an expert travel planner. Plan a ${duration}-day trip to ${destination}.`,
+    `Plan a ${duration}-day trip to ${destination}.`,
     "",
     "Output requirements:",
     `- Exactly ${duration} days, numbered 1..${duration}.`,

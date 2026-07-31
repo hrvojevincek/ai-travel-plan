@@ -1,23 +1,47 @@
-import { openai } from "@ai-sdk/openai";
-import { generateObject, type LanguageModel } from "ai";
+import "server-only";
+
+import type { LanguageModel } from "ai";
 import { z } from "zod";
 import type { AppDb } from "@/db/client";
+import { generateObjectResilient } from "@/lib/llm";
 import { getTrip } from "./data";
 import { ActivityTypeEnum } from "./schemas";
 
 export const SwapActivityOutput = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-  type: ActivityTypeEnum,
-  durationMinutes: z.number().int().positive(),
-  address: z.string().min(1),
-  estimatedCost: z.number().nonnegative(),
+  name: z.string().min(1).describe("Replacement venue or activity name"),
+  description: z
+    .string()
+    .min(1)
+    .describe("One short sentence describing the stop"),
+  type: ActivityTypeEnum.describe("Must match the slot being replaced"),
+  durationMinutes: z
+    .number()
+    .int()
+    .positive()
+    .describe("How long to spend here, in minutes"),
+  address: z
+    .string()
+    .min(1)
+    .describe("Real street address searchable in Google Maps"),
+  estimatedCost: z
+    .number()
+    .nonnegative()
+    .describe("Estimated cost in local currency"),
 });
 export type SwapActivityOutputT = z.infer<typeof SwapActivityOutput>;
 
 export interface SwapActivityOpts {
   model?: LanguageModel;
 }
+
+export const SWAP_SYSTEM_PROMPT = [
+  "You are an expert travel planner replacing a single itinerary stop.",
+  "Rules:",
+  "- Suggest only real, searchable venues — no fictional places.",
+  "- Keep the replacement geographically compatible with the day's other stops.",
+  "- Preserve the activity type/slot exactly.",
+  "- Addresses must be complete enough to find on Google Maps.",
+].join("\n");
 
 export async function swapActivity(
   db: AppDb,
@@ -45,8 +69,6 @@ export async function swapActivity(
     [target.name, ...siblings.map((s) => s.name)].map(normalizeName)
   );
 
-  const model = opts.model ?? openai("gpt-4o-mini");
-
   let duplicate: SwapActivityOutputT | null = null;
   for (let attempt = 1; attempt <= MAX_SWAP_ATTEMPTS; attempt++) {
     const prompt = buildPrompt({
@@ -56,7 +78,13 @@ export async function swapActivity(
       siblings,
       previousDuplicateName: duplicate?.name ?? null,
     });
-    const { object } = await generateObject({ model, schema, prompt });
+    const { object } = await generateObjectResilient({
+      schema,
+      system: SWAP_SYSTEM_PROMPT,
+      prompt,
+      model: opts.model,
+      context: "swapActivity",
+    });
     if (!forbiddenNames.has(normalizeName(object.name))) return object;
     duplicate = object;
   }

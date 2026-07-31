@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { buildTripNewHref } from "@/features/home-search/schema";
 import { tripKeys } from "@/lib/query/keys";
 import { fetchGeneratedTrip, type GenerateTripInput } from "../api/generate";
-import type { GeneratedTripResponseT } from "../generate";
+import type { GeneratedTripResponseT } from "../generate-schema";
 
 export type GenerateTripMutationInput = GenerateTripInput & {
   placeId?: string;

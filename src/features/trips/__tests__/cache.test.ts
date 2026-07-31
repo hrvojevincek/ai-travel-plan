@@ -4,7 +4,7 @@ import type { AppDb } from "@/db/client";
 import { generationCache } from "@/db/schema";
 import { type TestDbHandle, useTestDb } from "@/test/helpers/db";
 import { buildCacheKey, readCache, writeCache } from "../cache";
-import type { GeneratedTripResponseT } from "../generate";
+import type { GeneratedTripResponseT } from "../generate-schema";
 
 function asAppDb(handle: TestDbHandle): AppDb {
   return handle.db as unknown as AppDb;

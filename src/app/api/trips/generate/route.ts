@@ -1,11 +1,8 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import { buildCacheKey, readCache, writeCache } from "@/features/trips/cache";
-import { findPlaceMany } from "@/features/trips/find-place";
-import {
-  type GeneratedTripResponseT,
-  generateTrip,
-} from "@/features/trips/generate";
+import type { GeneratedTripResponseT } from "@/features/trips/generate-schema";
+import { generateTripWithGrounding } from "@/features/trips/ground";
 import { checkTripGenerateLimit, clientIp } from "@/lib/rate-limit";
 
 // Node serverless runtime. Without streaming we don't need Edge's long-lived
@@ -75,12 +72,7 @@ export async function POST(req: Request) {
 
     const { id: inflightKey } = buildCacheKey(parsed.data);
     const existing = inflight.get(inflightKey);
-    const generation =
-      existing ??
-      (async () => {
-        const trip = await generateTrip(parsed.data);
-        return attachCoords(trip);
-      })();
+    const generation = existing ?? generateTripWithGrounding(parsed.data);
     if (!existing) inflight.set(inflightKey, generation);
 
     let response: GeneratedTripResponseT;
@@ -101,47 +93,6 @@ export async function POST(req: Request) {
     console.error("[trips/generate] failed:", error);
     return Response.json({ error: friendlyMessage(error) }, { status: 502 });
   }
-}
-
-// Looks every activity up in Google Places Find Place — one call yields
-// coords + place_id + first photo reference. Failures degrade gracefully:
-// we still return the trip with null fields so pins/photos just don't render.
-async function attachCoords(
-  trip: Awaited<ReturnType<typeof generateTrip>>
-): Promise<GeneratedTripResponseT> {
-  const requests = trip.days.flatMap((d) =>
-    d.activities.map((a) => ({
-      name: a.name,
-      query: `${a.name}, ${trip.destination}`,
-    }))
-  );
-  let places: Awaited<ReturnType<typeof findPlaceMany>>;
-  try {
-    places = await findPlaceMany(requests);
-  } catch (e) {
-    console.warn(
-      "[trips/generate] findPlaceMany threw; returning trip without place data:",
-      e instanceof Error ? e.message : e
-    );
-    places = requests.map(() => null);
-  }
-  let i = 0;
-  return {
-    ...trip,
-    days: trip.days.map((d) => ({
-      dayNumber: d.dayNumber,
-      activities: d.activities.map((a) => {
-        const p = places[i++];
-        return {
-          ...a,
-          latitude: p?.latitude ?? null,
-          longitude: p?.longitude ?? null,
-          placeId: p?.placeId ?? null,
-          photoReference: p?.photoReference ?? null,
-        };
-      }),
-    })),
-  };
 }
 
 function friendlyMessage(error: unknown): string {

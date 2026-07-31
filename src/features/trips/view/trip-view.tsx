@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type MapActivity, TripMap } from "@/features/maps";
 import { activityPhotoQueryOptions } from "@/features/maps/hooks/use-activity-photo";
 import { cn } from "@/lib/utils";
-import type { GeneratedActivityTypeT, GeneratedTripT } from "../generate";
+import type { GeneratedActivityTypeT, GeneratedTripT } from "../generate-schema";
 
 type PartialActivity = Partial<
   GeneratedTripT["days"][number]["activities"][number]

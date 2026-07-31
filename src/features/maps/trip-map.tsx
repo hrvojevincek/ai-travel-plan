@@ -10,7 +10,7 @@ import {
   MarkerContent,
   useMap,
 } from "@/components/ui/map";
-import type { GeneratedActivityTypeT } from "@/features/trips/generate";
+import type { GeneratedActivityTypeT } from "@/features/trips/generate-schema";
 import { cn } from "@/lib/utils";
 import { useActivityPhotoQuery } from "./hooks/use-activity-photo";
 

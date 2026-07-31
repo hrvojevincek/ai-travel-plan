@@ -4,7 +4,10 @@ import { createHash } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { AppDb } from "@/db/client";
 import { generationCache } from "@/db/schema";
-import { GeneratedTripResponse, type GeneratedTripResponseT } from "./generate";
+import {
+  GeneratedTripResponse,
+  type GeneratedTripResponseT,
+} from "./generate-schema";
 
 export interface CacheKeyInput {
   destination: string;
