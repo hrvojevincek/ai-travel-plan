@@ -78,12 +78,12 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
   const mapsEnabled = hasMapsApiKey();
 
   const inputClass =
-    "h-11 border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30";
-  const labelClass = "text-white/90 font-medium";
+    "h-9 text-sm border-white/30 bg-white/95 text-foreground placeholder:text-muted-foreground shadow-sm focus-visible:border-primary focus-visible:ring-primary/30";
+  const labelClass = "text-sm text-white/90 font-medium";
 
   return (
     <Form {...form}>
-      <form onSubmit={submit} className="flex w-full flex-col gap-5">
+      <form onSubmit={submit} className="flex w-full flex-col gap-3.5">
         <FormField
           control={form.control}
           name="destination"
@@ -176,8 +176,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
         )}
         <Button
           type="submit"
-          size="lg"
-          className="h-12 w-full text-base font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
+          className="h-9 w-full text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
           disabled={isPending}
         >
           {isPending ? (
@@ -215,24 +214,24 @@ function TripGenerationProgress({
   const progress = Math.round((completed / total) * 100);
 
   return (
-    <div className="rounded-xl border border-white/25 bg-black/20 p-4 text-white shadow-lg backdrop-blur-sm">
-      <p className="text-sm font-medium text-white/90">
+    <div className="animate-in slide-in-from-top-2 fade-in duration-300 rounded-lg border border-white/25 bg-black/20 p-3 text-white shadow-lg backdrop-blur-sm">
+      <p className="text-xs font-medium text-white/90">
         Building your {destination || "next"} adventure...
       </p>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/20">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/20">
         <div
           className="h-full rounded-full bg-white transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="mt-2 space-y-1.5">
         {steps.map((step, index) => {
           const isDone = index < currentStep;
           const isActive = index === currentStep;
           return (
             <div
               key={step}
-              className="flex items-center gap-2 text-xs text-white/80"
+              className="flex items-center gap-1.5 text-[11px] text-white/80 sm:text-xs"
               aria-live={isActive ? "polite" : undefined}
             >
               {isDone ? (
