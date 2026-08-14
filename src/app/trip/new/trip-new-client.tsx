@@ -3,9 +3,10 @@
 import { RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AuthModal } from "@/features/auth/components/auth-modal";
 import type { GeneratedTripResponseT } from "@/features/trips/generate-schema";
 import { useGeneratedTripQuery } from "@/features/trips/hooks/use-generate-trip";
 import { useSaveTripMutation } from "@/features/trips/hooks/use-save-trip";
@@ -39,6 +40,7 @@ export function TripNewClient() {
 
   const autoSaveFired = useRef(false);
   const saveMutation = useSaveTripMutation();
+  const [authOpen, setAuthOpen] = useState(false);
 
   const {
     data: generatedTrip,
@@ -74,22 +76,7 @@ export function TripNewClient() {
               return;
             }
             if (res.code === "UNAUTH") {
-              toast.info("Sign in to save your trip.");
-              const qs = new URLSearchParams({
-                destination,
-                duration: String(duration),
-                ...(preferences ? { preferences } : {}),
-                ...(placeId ? { placeId } : {}),
-                ...(destinationLat != null
-                  ? { lat: String(destinationLat) }
-                  : {}),
-                ...(destinationLng != null
-                  ? { lng: String(destinationLng) }
-                  : {}),
-                saveOnLoad: "1",
-              });
-              const returnTo = `/trip/new?${qs.toString()}`;
-              router.push(`/login?redirectTo=${encodeURIComponent(returnTo)}`);
+              setAuthOpen(true);
               return;
             }
             toast.error(res.message ?? "Couldn't save trip. Please try again.");
@@ -97,21 +84,17 @@ export function TripNewClient() {
         }
       );
     },
-    [
-      destination,
-      duration,
-      preferences,
-      placeId,
-      destinationLat,
-      destinationLng,
-      router,
-      saveMutation,
-    ]
+    [placeId, destinationLat, destinationLng, router, saveMutation]
   );
 
   const handleSave = () => {
     if (!trip || saveMutation.isPending) return;
     runSave(trip);
+  };
+
+  const handleAuthSuccess = () => {
+    setAuthOpen(false);
+    if (trip) runSave(trip);
   };
 
   const shouldAutoSave = params.get("saveOnLoad") === "1";
@@ -140,16 +123,23 @@ export function TripNewClient() {
   }
 
   return (
-    <TripView
-      trip={trip}
-      expectedDays={duration}
-      destination={destination}
-      destinationLat={destinationLat}
-      destinationLng={destinationLng}
-      canSave={canSave}
-      saveLabel={saveMutation.isPending ? "Saving…" : "Save trip"}
-      onSave={handleSave}
-    />
+    <>
+      <TripView
+        trip={trip}
+        expectedDays={duration}
+        destination={destination}
+        destinationLat={destinationLat}
+        destinationLng={destinationLng}
+        canSave={canSave}
+        saveLabel={saveMutation.isPending ? "Saving…" : "Save trip"}
+        onSave={handleSave}
+      />
+      <AuthModal
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        onSuccess={handleAuthSuccess}
+      />
+    </>
   );
 }
 

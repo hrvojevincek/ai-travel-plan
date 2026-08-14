@@ -61,6 +61,19 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Next.js docs for coding agents
+
+This project follows the [Next.js AI coding agents](https://nextjs.org/docs/app/guides/ai-agents) setup so agents use **version-matched docs** instead of training data.
+
+| Source | Path |
+| --- | --- |
+| Bundled docs (Next.js 16.3.1) | `node_modules/next/dist/docs/` |
+| Agent index | [`AGENTS.md`](./AGENTS.md) |
+| Network index | [nextjs.org/docs/llms.txt](https://nextjs.org/docs/llms.txt) |
+| Runtime MCP | [`.mcp.json`](./.mcp.json) / [`.cursor/mcp.json`](./.cursor/mcp.json) |
+
+Enable the `next-devtools` server in **Cursor Settings → MCP**, then run `pnpm dev` for live errors, routes, and logs. See the [MCP guide](https://nextjs.org/docs/app/guides/mcp).
+
 ### Scripts
 
 | Command            | Description                  |

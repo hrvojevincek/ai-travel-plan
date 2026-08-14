@@ -6,7 +6,7 @@ import { requireAuth } from "@/features/auth";
 import { getUserTripSummaries } from "@/features/trips/data";
 import { TripCard } from "./_components/trip-card";
 
-export const metadata = { title: "Your trips · Voyago" };
+export const metadata = { title: "Your trips" };
 
 export default async function DashboardPage() {
   const session = await requireAuth();

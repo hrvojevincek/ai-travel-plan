@@ -1,5 +1,5 @@
-import { Pool } from "pg";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
 export type AppDb = NodePgDatabase<typeof schema>;
@@ -12,7 +12,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  // Neon (and similar) can take several seconds to wake a suspended compute.
+  // 2s made cache reads fail-open on the first request after idle.
+  connectionTimeoutMillis: 15_000,
 });
 
 export const db = drizzle(pool, { schema });

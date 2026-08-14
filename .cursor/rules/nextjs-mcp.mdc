@@ -1,0 +1,15 @@
+---
+description: Use bundled Next.js 16.3 docs (node_modules/next/dist/docs, llms.txt, next-devtools MCP) instead of training data.
+globs: src/app/**/*.{ts,tsx}, next.config.*, src/proxy.ts
+alwaysApply: true
+---
+
+# Next.js docs
+
+This project is Next.js **16.3.1** (App Router). Read `AGENTS.md` and bundled docs before writing Next.js code.
+
+1. Read `node_modules/next/dist/docs/` (version-matched; starts at `index.md`).
+2. Network: https://nextjs.org/docs/llms.txt — append `.md` to any docs URL.
+3. Runtime (needs `pnpm dev`): `next-devtools` MCP — `nextjs_index` then `nextjs_call`.
+
+`cacheComponents` is not enabled. Do not assume `"use cache"` / Instant Navigation APIs apply until that flag is on.

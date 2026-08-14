@@ -190,6 +190,7 @@ function ActivitiesHeader({
             alt="Voyago"
             width={80}
             height={26}
+            className="h-auto w-auto"
             priority
           />
         </Link>
