@@ -2,8 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { buildTripNewHref } from "@/features/home-search/schema";
+import { isAbortError } from "@/lib/abort";
 import { tripKeys } from "@/lib/query/keys";
 import { fetchGeneratedTrip, type GenerateTripInput } from "../api/generate";
 import type { GeneratedTripResponseT } from "../generate-schema";
@@ -17,6 +19,11 @@ export type GenerateTripMutationInput = GenerateTripInput & {
 export function useGenerateTripMutation() {
   const qc = useQueryClient();
   const router = useRouter();
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   return useMutation({
     mutationFn: (input: GenerateTripMutationInput) => {
@@ -26,7 +33,10 @@ export function useGenerateTripMutation() {
         destinationLng: _lng,
         ...params
       } = input;
-      return fetchGeneratedTrip(params);
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      return fetchGeneratedTrip(params, ac.signal);
     },
     onSuccess: (trip, vars) => {
       const { placeId, destinationLat, destinationLng, ...params } = vars;
@@ -43,6 +53,7 @@ export function useGenerateTripMutation() {
       );
     },
     onError: (e) => {
+      if (isAbortError(e)) return;
       const message =
         e instanceof Error ? e.message : "Couldn't generate your trip.";
       toast.error(message);
@@ -57,7 +68,7 @@ export function useGeneratedTripQuery(
 
   return useQuery<GeneratedTripResponseT>({
     queryKey: tripKeys.generate(params),
-    queryFn: () => fetchGeneratedTrip(params),
+    queryFn: ({ signal }) => fetchGeneratedTrip(params, signal),
     enabled: enabled && Boolean(params.destination),
     staleTime: Number.POSITIVE_INFINITY,
   });

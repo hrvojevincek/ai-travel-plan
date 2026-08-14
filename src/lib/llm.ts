@@ -1,12 +1,9 @@
 import "server-only";
 
 import { openai } from "@ai-sdk/openai";
-import {
-  type GenerateObjectResult,
-  generateObject,
-  type LanguageModel,
-} from "ai";
+import { generateText, type LanguageModel, Output } from "ai";
 import type { z } from "zod";
+import { abortError } from "@/lib/abort";
 
 export const DEFAULT_LLM_TIMEOUT_MS = 45_000;
 export const DEFAULT_STRUCTURED_TEMPERATURE = 0.2;
@@ -23,18 +20,31 @@ export interface GenerateObjectResilientOpts<T extends z.ZodType> {
   temperature?: number;
   maxRetries?: number;
   timeoutMs?: number;
+  abortSignal?: AbortSignal;
   /** Log context tag, e.g. "generateTrip" | "swapActivity". */
   context: string;
+}
+
+export interface GenerateStructuredResult<T> {
+  object: T;
+  usage: {
+    inputTokens: number | undefined;
+    outputTokens: number | undefined;
+  };
 }
 
 /**
  * Structured-object generation with timeout, token logging, and optional
  * fallback model. Injected `model` skips the fallback chain so tests stay
- * hermetic.
+ * hermetic. Client disconnect (`abortSignal`) skips fallback.
  */
 export async function generateObjectResilient<T extends z.ZodType>(
   opts: GenerateObjectResilientOpts<T>
-): Promise<GenerateObjectResult<z.infer<T>>> {
+): Promise<GenerateStructuredResult<z.infer<T>>> {
+  if (opts.abortSignal?.aborted) {
+    throw abortError(opts.abortSignal);
+  }
+
   const models: LanguageModel[] = opts.model
     ? [opts.model]
     : [PRIMARY_MODEL(), FALLBACK_MODEL()];
@@ -46,16 +56,21 @@ export async function generateObjectResilient<T extends z.ZodType>(
 
   let lastError: unknown;
   for (const model of models) {
+    if (opts.abortSignal?.aborted) {
+      throw abortError(opts.abortSignal);
+    }
+
     const label = modelLabel(model);
     try {
-      const result = await generateObject({
+      const result = await generateText({
         model,
-        schema: opts.schema,
+        output: Output.object({ schema: opts.schema }),
         system: opts.system,
         prompt: opts.prompt,
         temperature,
         maxRetries,
         timeout: timeoutMs,
+        abortSignal: opts.abortSignal,
       });
 
       console.info(
@@ -65,9 +80,15 @@ export async function generateObjectResilient<T extends z.ZodType>(
           `outputTokens=${result.usage.outputTokens ?? "?"}`
       );
 
-      return result as GenerateObjectResult<z.infer<T>>;
+      return {
+        object: result.output as z.infer<T>,
+        usage: result.usage,
+      };
     } catch (e) {
       lastError = e;
+      if (opts.abortSignal?.aborted) {
+        throw abortError(opts.abortSignal);
+      }
       console.warn(
         `[llm] ${opts.context} failed model=${label} ` +
           `latencyMs=${Date.now() - started}:`,

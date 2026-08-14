@@ -162,6 +162,23 @@ describe("generateTrip", () => {
       generateTrip({ destination: "Lisbon", duration: 1, model: failing })
     ).rejects.toThrow(/upstream_timeout/);
   });
+
+  it("rejects when abortSignal is already aborted", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const model = mockObjectModel(makeFixture(1));
+
+    await expect(
+      generateTrip({
+        destination: "Lisbon",
+        duration: 1,
+        model,
+        abortSignal: ac.signal,
+      })
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
 });
 
 describe("toCreateTripInput", () => {

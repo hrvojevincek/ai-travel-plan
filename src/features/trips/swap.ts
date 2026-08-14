@@ -32,6 +32,7 @@ export type SwapActivityOutputT = z.infer<typeof SwapActivityOutput>;
 
 export interface SwapActivityOpts {
   model?: LanguageModel;
+  abortSignal?: AbortSignal;
 }
 
 export const SWAP_SYSTEM_PROMPT = [
@@ -83,6 +84,7 @@ export async function swapActivity(
       system: SWAP_SYSTEM_PROMPT,
       prompt,
       model: opts.model,
+      abortSignal: opts.abortSignal,
       context: "swapActivity",
     });
     if (!forbiddenNames.has(normalizeName(object.name))) return object;
