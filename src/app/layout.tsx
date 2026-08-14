@@ -13,7 +13,10 @@ const hind = Hind({
 });
 
 export const metadata: Metadata = {
-  title: "AI Voyago",
+  title: {
+    default: "AI Voyago",
+    template: "%s · Voyago",
+  },
   description: "AI Voyago travel planner",
 };
 
@@ -23,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${hind.variable} antialiased`}>
+    <html lang="en" className={hind.variable}>
+      <body className={`${hind.className} antialiased`}>
         <QueryProvider>
           <NuqsAdapter>
             <MapsApiProvider>

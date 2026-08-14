@@ -5,7 +5,7 @@ import { getTrip } from "@/features/trips/data";
 import { tripRowToPartial } from "@/features/trips/view";
 import { TripDetailClient } from "./trip-detail-client";
 
-export const metadata = { title: "Trip · Voyago" };
+export const metadata = { title: "Trip" };
 
 export default async function TripDetailPage({
   params,

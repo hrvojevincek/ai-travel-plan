@@ -175,6 +175,22 @@ describe("useAuthForm('sign-in')", () => {
     await waitFor(() => expect(hoisted.pushMock).toHaveBeenCalled());
     expect(order).toEqual(["onSuccess", "push"]);
   });
+
+  it("skips router.push when navigate is false", async () => {
+    hoisted.signInEmail.mockImplementation(async (_input, cb) => {
+      await cb.onSuccess?.();
+    });
+    const onSuccess = vi.fn();
+
+    const user = typeAndSubmit();
+    render(<SignInHarness navigate={false} onSuccess={onSuccess} />);
+    await user.type(screen.getByLabelText("email"), "ada@example.com");
+    await user.type(screen.getByLabelText("password"), "hunter2");
+    await user.click(screen.getByRole("button"));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(hoisted.pushMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("useAuthForm('sign-up')", () => {

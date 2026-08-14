@@ -23,6 +23,7 @@ import {
 export interface UseAuthFormOpts {
   redirectTo?: string;
   onSuccess?: () => void;
+  navigate?: boolean;
 }
 
 export interface UseAuthFormReturn<K extends AuthKind> {
@@ -58,7 +59,9 @@ export function useAuthForm<K extends AuthKind>(
     const onSettled = {
       onSuccess: () => {
         opts.onSuccess?.();
-        router.push(redirectTo);
+        if (opts.navigate !== false) {
+          router.push(redirectTo);
+        }
       },
       onError: (ctx: { error: { message: string } }) => {
         toast.error(ctx.error.message);

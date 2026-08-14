@@ -15,7 +15,7 @@ export default async function Home() {
           alt="Voyago"
           width={160}
           height={58}
-          className="mb-5 drop-shadow-lg"
+          className="mb-5 h-auto w-auto drop-shadow-lg"
           priority
         />
 
