@@ -1,5 +1,5 @@
+import { generateText, Output } from "ai";
 import { describe, expect, it } from "vitest";
-import { generateObject } from "ai";
 import { z } from "zod";
 import { mockObjectModel } from "@/test/helpers/ai";
 
@@ -9,25 +9,25 @@ const TripSchema = z.object({
 });
 
 describe("mockObjectModel", () => {
-  it("drives generateObject to return the fixture value", async () => {
+  it("drives generateText + Output.object to return the fixture value", async () => {
     const fixture = { destination: "Lisbon", days: 5 };
-    const result = await generateObject({
+    const result = await generateText({
       model: mockObjectModel(fixture),
-      schema: TripSchema,
+      output: Output.object({ schema: TripSchema }),
       prompt: "ignored — model is mocked",
     });
 
-    expect(result.object).toEqual(fixture);
+    expect(result.output).toEqual(fixture);
   });
 
   it("rejects when the fixture violates the Zod schema", async () => {
     const bad = { destination: "Lisbon", days: -1 };
     await expect(
-      generateObject({
+      generateText({
         model: mockObjectModel(bad),
-        schema: TripSchema,
+        output: Output.object({ schema: TripSchema }),
         prompt: "ignored",
-      }),
+      })
     ).rejects.toThrow();
   });
 });

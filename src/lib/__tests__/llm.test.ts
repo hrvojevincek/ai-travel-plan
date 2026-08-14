@@ -1,3 +1,7 @@
+import type {
+  LanguageModelV3CallOptions,
+  LanguageModelV3GenerateResult,
+} from "@ai-sdk/provider";
 import { MockLanguageModelV3 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -84,5 +88,58 @@ describe("generateObjectResilient", () => {
       temperature: 0.2,
     });
     expect(result.object.name).toBe("ok");
+  });
+
+  it("rejects an already-aborted signal without calling the model", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const model = mockObjectModel({ name: "x", cost: 1 });
+
+    await expect(
+      generateObjectResilient({
+        schema: Schema,
+        system: "sys",
+        prompt: "prompt",
+        model,
+        abortSignal: ac.signal,
+        context: "test-already-aborted",
+      })
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("rejects when the abort signal fires during generation", async () => {
+    const ac = new AbortController();
+    const hanging = new MockLanguageModelV3({
+      doGenerate: ({
+        abortSignal,
+      }: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> =>
+        new Promise((_, reject) => {
+          const fail = () => {
+            const err = new Error("Aborted");
+            err.name = "AbortError";
+            reject(err);
+          };
+          if (abortSignal?.aborted) {
+            fail();
+            return;
+          }
+          abortSignal?.addEventListener("abort", fail, { once: true });
+        }),
+    });
+
+    const pending = generateObjectResilient({
+      schema: Schema,
+      system: "sys",
+      prompt: "prompt",
+      model: hanging,
+      abortSignal: ac.signal,
+      context: "test-abort",
+      maxRetries: 0,
+    });
+
+    ac.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
   });
 });

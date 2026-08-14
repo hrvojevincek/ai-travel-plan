@@ -3,15 +3,19 @@ import {
   type GeneratedTripResponseT,
 } from "../generate-schema";
 
-export async function fetchGeneratedTrip(input: {
-  destination: string;
-  duration: number;
-  preferences?: string;
-}): Promise<GeneratedTripResponseT> {
+export async function fetchGeneratedTrip(
+  input: {
+    destination: string;
+    duration: number;
+    preferences?: string;
+  },
+  signal?: AbortSignal
+): Promise<GeneratedTripResponseT> {
   const res = await fetch("/api/trips/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+    signal,
   });
 
   const body = (await res.json().catch(() => ({}))) as {

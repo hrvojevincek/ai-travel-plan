@@ -43,11 +43,14 @@ describe("SearchForm", () => {
     await user.click(screen.getByRole("button", { name: /plan my trip/i }));
 
     await waitFor(() => expect(hoisted.pushMock).toHaveBeenCalledTimes(1));
-    expect(hoisted.fetchGeneratedTripMock).toHaveBeenCalledWith({
+    expect(hoisted.fetchGeneratedTripMock.mock.calls[0][0]).toEqual({
       destination: "Lisbon",
       duration: 5,
       preferences: "vegan, no museums",
     });
+    expect(hoisted.fetchGeneratedTripMock.mock.calls[0][1]).toBeInstanceOf(
+      AbortSignal
+    );
     const target = hoisted.pushMock.mock.calls[0][0] as string;
     const url = new URL(target, "http://localhost");
     expect(url.pathname).toBe("/trip/new");

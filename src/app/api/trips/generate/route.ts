@@ -3,11 +3,9 @@ import { db } from "@/db/client";
 import { buildCacheKey, readCache, writeCache } from "@/features/trips/cache";
 import type { GeneratedTripResponseT } from "@/features/trips/generate-schema";
 import { generateTripWithGrounding } from "@/features/trips/ground";
+import { isAbortError } from "@/lib/abort";
 import { checkTripGenerateLimit, clientIp } from "@/lib/rate-limit";
 
-// Node serverless runtime. Without streaming we don't need Edge's long-lived
-// streams; Node gives us access to the same 60s maxDuration on Hobby and is
-// easier to debug.
 export const maxDuration = 60;
 
 const Body = z.object({
@@ -72,7 +70,12 @@ export async function POST(req: Request) {
 
     const { id: inflightKey } = buildCacheKey(parsed.data);
     const existing = inflight.get(inflightKey);
-    const generation = existing ?? generateTripWithGrounding(parsed.data);
+    const generation =
+      existing ??
+      generateTripWithGrounding({
+        ...parsed.data,
+        abortSignal: req.signal,
+      });
     if (!existing) inflight.set(inflightKey, generation);
 
     let response: GeneratedTripResponseT;
@@ -88,8 +91,15 @@ export async function POST(req: Request) {
       console.warn("[trips/generate] cache write failed:", e);
     });
 
+    if (req.signal.aborted) {
+      return new Response(null, { status: 499 });
+    }
+
     return Response.json(response);
   } catch (error) {
+    if (isAbortError(error) || req.signal.aborted) {
+      return new Response(null, { status: 499 });
+    }
     console.error("[trips/generate] failed:", error);
     return Response.json({ error: friendlyMessage(error) }, { status: 502 });
   }

@@ -38,6 +38,7 @@ export interface GenerateTripOpts {
   duration: number;
   preferences?: string;
   model?: LanguageModel;
+  abortSignal?: AbortSignal;
 }
 
 export const TRIP_SYSTEM_PROMPT = [
@@ -58,6 +59,7 @@ export async function generateTrip(
     system: TRIP_SYSTEM_PROMPT,
     prompt: buildPrompt(opts),
     model: opts.model,
+    abortSignal: opts.abortSignal,
     context: "generateTrip",
   });
   return object;
@@ -132,6 +134,7 @@ export async function regenerateUngroundedActivities(
       .filter(Boolean)
       .join("\n"),
     model: opts.model,
+    abortSignal: opts.abortSignal,
     context: "regenerateUngrounded",
   });
 
