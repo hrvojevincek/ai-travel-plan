@@ -3,11 +3,7 @@ import { mockObjectModel } from "@/test/helpers/ai";
 import type { FindPlaceResult } from "../find-place";
 import type { GeneratedTripT } from "../generate-schema";
 import { ACTIVITIES_PER_DAY } from "../generate-schema";
-import {
-  buildPlaceQuery,
-  generateTripWithGrounding,
-  MAX_GROUNDING_PASSES,
-} from "../ground";
+import { generateTripWithGrounding, MAX_GROUNDING_PASSES } from "../ground";
 
 function place(overrides: Partial<FindPlaceResult> = {}): FindPlaceResult {
   return {
@@ -87,24 +83,6 @@ function makeFixture(days = 1): GeneratedTripT {
     })),
   };
 }
-
-describe("buildPlaceQuery", () => {
-  it("uses the address alone when it already contains the destination", () => {
-    expect(buildPlaceQuery("Cafe", "Rua A 1, Lisbon", "Lisbon")).toBe(
-      "Rua A 1, Lisbon"
-    );
-  });
-
-  it("combines name, address, and destination otherwise", () => {
-    expect(buildPlaceQuery("Cafe", "Rua A 1", "Lisbon")).toBe(
-      "Cafe, Rua A 1, Lisbon"
-    );
-  });
-
-  it("falls back to name + destination when address is empty", () => {
-    expect(buildPlaceQuery("Cafe", "  ", "Lisbon")).toBe("Cafe, Lisbon");
-  });
-});
 
 describe("generateTripWithGrounding", () => {
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

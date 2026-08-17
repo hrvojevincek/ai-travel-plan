@@ -1,6 +1,10 @@
 import "server-only";
 
 import type { LanguageModel } from "ai";
+import {
+  type ActivityPlaceLookup,
+  lookupActivityPlaces,
+} from "./activity-places";
 import { type FindPlaceResult, findPlaceMany } from "./find-place";
 import {
   type GeneratedTripResponseT,
@@ -15,25 +19,8 @@ export const MAX_GROUNDING_PASSES = 2;
 
 export interface GroundTripOpts extends GenerateTripOpts {
   model?: LanguageModel;
-  /** Injected for tests — defaults to findPlaceMany. */
-  lookupPlaces?: typeof findPlaceMany;
-}
-
-/**
- * Build a Places text query preferring the LLM street address when present.
- */
-export function buildPlaceQuery(
-  name: string,
-  address: string,
-  destination: string
-): string {
-  const addr = address.trim();
-  const dest = destination.trim();
-  if (!addr) return `${name}, ${dest}`;
-  if (dest && addr.toLowerCase().includes(dest.toLowerCase())) {
-    return addr;
-  }
-  return `${name}, ${addr}, ${dest}`;
+  /** Injected for tests — passed through to lookupActivityPlaces. */
+  lookupPlaces?: ActivityPlaceLookup;
 }
 
 function placesKeyConfigured(): boolean {
@@ -88,28 +75,15 @@ export async function generateTripWithGrounding(
 
 async function lookupAll(
   trip: GeneratedTripT,
-  lookup: typeof findPlaceMany
+  lookup: ActivityPlaceLookup
 ): Promise<{
   places: (FindPlaceResult | null)[];
   failures: UngroundedSlot[];
 }> {
-  const requests = trip.days.flatMap((d) =>
-    d.activities.map((a) => ({
-      name: a.name,
-      query: buildPlaceQuery(a.name, a.address, trip.destination),
-    }))
+  const items = trip.days.flatMap((d) =>
+    d.activities.map((a) => ({ name: a.name, address: a.address }))
   );
-
-  let places: (FindPlaceResult | null)[];
-  try {
-    places = await lookup(requests);
-  } catch (e) {
-    console.warn(
-      "[trips/ground] findPlaceMany threw; treating all as ungrounded:",
-      e instanceof Error ? e.message : e
-    );
-    places = requests.map(() => null);
-  }
+  const places = await lookupActivityPlaces(items, trip.destination, lookup);
 
   const failures: UngroundedSlot[] = [];
   let i = 0;

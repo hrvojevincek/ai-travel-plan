@@ -5,8 +5,8 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { getSession } from "@/features/auth";
 import { logAndFail } from "@/lib/action-error";
+import { lookupActivityPlaces } from "./activity-places";
 import { createTrip, deleteTripForUser, getTrip, updateActivity } from "./data";
-import { findPlaceMany, findPlaceOne } from "./find-place";
 import {
   type GeneratedActivityTypeT,
   GeneratedTripResponse,
@@ -61,21 +61,28 @@ export async function saveTrip(
   // lookups — retrying those here would burn Places quota on addresses we
   // already know are bad. `undefined` means "never attempted"; `null` means
   // "attempted and failed"; a string/number means "resolved".
-  const missing: { dayIdx: number; actIdx: number; query: string }[] = [];
+  const missing: {
+    dayIdx: number;
+    actIdx: number;
+    name: string;
+    address: string;
+  }[] = [];
   parsed.data.days.forEach((d, dayIdx) => {
     d.activities.forEach((a, actIdx) => {
       if (a.latitude === undefined || a.longitude === undefined) {
         missing.push({
           dayIdx,
           actIdx,
-          query: `${a.name}, ${parsed.data.destination}`,
+          name: a.name,
+          address: a.address,
         });
       }
     });
   });
   if (missing.length > 0) {
-    const places = await findPlaceMany(
-      missing.map((m) => ({ name: m.query, query: m.query }))
+    const places = await lookupActivityPlaces(
+      missing.map((m) => ({ name: m.name, address: m.address })),
+      parsed.data.destination
     );
     missing.forEach((m, i) => {
       const p = places[i];
@@ -167,7 +174,10 @@ export async function swapActivityAction(
 
   try {
     const suggestion = await swapActivity(db, tripId, activityId);
-    const place = await findPlaceOne(`${suggestion.name}, ${trip.destination}`);
+    const [place] = await lookupActivityPlaces(
+      [{ name: suggestion.name, address: suggestion.address }],
+      trip.destination
+    );
 
     await updateActivity(db, activityId, {
       name: suggestion.name,
