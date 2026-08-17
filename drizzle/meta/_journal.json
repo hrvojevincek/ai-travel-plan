@@ -36,6 +36,13 @@
       "when": 1776601509502,
       "tag": "0004_activity_place_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786965669907,
+      "tag": "0005_activity_slot_types",
+      "breakpoints": true
     }
   ]
 }

@@ -28,20 +28,25 @@ async function seed(db: AppDb): Promise<string> {
       {
         dayNumber: 1,
         activities: [
-          { name: "Old Cafe", type: "food", orderIndex: 0, estimatedCost: 10 },
-          { name: "Jeronimos Monastery", type: "sightseeing", orderIndex: 1 },
-          { name: "MAAT", type: "sightseeing", orderIndex: 2 },
+          {
+            name: "Old Cafe",
+            type: "breakfast",
+            orderIndex: 0,
+            estimatedCost: 10,
+          },
+          { name: "Jeronimos Monastery", type: "activity", orderIndex: 1 },
+          { name: "MAAT", type: "activity", orderIndex: 2 },
           {
             name: "Cervejaria Ramiro",
-            type: "food",
+            type: "lunch",
             orderIndex: 3,
             estimatedCost: 35,
           },
-          { name: "Alfama walk", type: "sightseeing", orderIndex: 4 },
-          { name: "Tram 28", type: "sightseeing", orderIndex: 5 },
+          { name: "Alfama walk", type: "activity", orderIndex: 4 },
+          { name: "Tram 28", type: "activity", orderIndex: 5 },
           {
             name: "Tasca Dinner",
-            type: "food",
+            type: "dinner",
             orderIndex: 6,
             estimatedCost: 25,
           },
@@ -56,7 +61,7 @@ async function seed(db: AppDb): Promise<string> {
 const REPLACEMENT_FOOD: SwapActivityOutputT = {
   name: "Pasteis de Belem",
   description: "Iconic custard tart bakery.",
-  type: "food",
+  type: "breakfast",
   durationMinutes: 45,
   address: "R. de Belem 84, Lisboa",
   estimatedCost: 8,
@@ -65,7 +70,7 @@ const REPLACEMENT_FOOD: SwapActivityOutputT = {
 const REPLACEMENT_SIGHT: SwapActivityOutputT = {
   ...REPLACEMENT_FOOD,
   name: "Miradouro da Graca",
-  type: "sightseeing",
+  type: "activity",
 };
 
 describe("swapActivity", () => {
@@ -88,7 +93,7 @@ describe("swapActivity", () => {
     });
 
     expect(result.name).toBe("Pasteis de Belem");
-    expect(result.type).toBe("food");
+    expect(result.type).toBe("breakfast");
     expect(result.durationMinutes).toBe(45);
   });
 
@@ -98,7 +103,7 @@ describe("swapActivity", () => {
 
     await expect(
       swapActivity(db, tripId, target.id, {
-        model: mockObjectModel({ ...REPLACEMENT_FOOD, type: "sightseeing" }),
+        model: mockObjectModel({ ...REPLACEMENT_FOOD, type: "activity" }),
       })
     ).rejects.toThrow();
   });

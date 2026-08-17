@@ -194,18 +194,13 @@ export async function swapActivityAction(
 
     revalidatePath(`/trip/${tripId}`);
 
-    // `suggestion.type` is the narrow enum kept by swapActivity; expose the
-    // UI-facing type (breakfast/lunch/dinner/activity) so the client can
-    // pick the correct map glyph without reloading.
-    const uiType = inferUiType(trip, activityId);
-
     return {
       ok: true,
       activity: {
         id: activityId,
         name: suggestion.name,
         description: suggestion.description,
-        type: uiType,
+        type: suggestion.type,
         durationMinutes: suggestion.durationMinutes,
         address: suggestion.address,
         estimatedCost: suggestion.estimatedCost,
@@ -218,24 +213,4 @@ export async function swapActivityAction(
   } catch (e) {
     return logAndFail("swapActivityAction", e);
   }
-}
-
-/** The DB enum stores `food` / `other`; the UI wants breakfast/lunch/dinner/
- *  activity. Derive from the slot position — the generator guarantees
- *  0=breakfast, 3=lunch, 6=dinner, else activity. Matches adapt.ts. */
-function inferUiType(
-  trip: Awaited<ReturnType<typeof getTrip>>,
-  activityId: string
-): GeneratedActivityTypeT {
-  if (!trip) return "activity";
-  for (const day of trip.days) {
-    const a = day.activities.find((x) => x.id === activityId);
-    if (!a) continue;
-    const slot = a.orderIndex % 7;
-    if (slot === 0) return "breakfast";
-    if (slot === 3) return "lunch";
-    if (slot === 6) return "dinner";
-    return "activity";
-  }
-  return "activity";
 }

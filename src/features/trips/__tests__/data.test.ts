@@ -37,13 +37,13 @@ function makeInput(
         activities: [
           {
             name: "Tram 28",
-            type: "sightseeing",
+            type: "activity",
             orderIndex: 0,
             estimatedCost: 3,
           },
           {
             name: "Pasteis de Belem",
-            type: "food",
+            type: "breakfast",
             orderIndex: 1,
             estimatedCost: 10,
           },
@@ -52,7 +52,7 @@ function makeInput(
       {
         dayNumber: 2,
         activities: [
-          { name: "Sintra day trip", type: "sightseeing", orderIndex: 0 },
+          { name: "Sintra day trip", type: "activity", orderIndex: 0 },
         ],
       },
     ],
@@ -92,8 +92,8 @@ describe("trip data layer", () => {
           {
             dayNumber: 1,
             activities: [
-              { name: "a", type: "food", orderIndex: 0 },
-              { name: "b", type: "food", orderIndex: 0 },
+              { name: "a", type: "breakfast", orderIndex: 0 },
+              { name: "b", type: "breakfast", orderIndex: 0 },
             ],
           },
         ],
@@ -124,13 +124,13 @@ describe("trip data layer", () => {
           days: [
             {
               dayNumber: 2,
-              activities: [{ name: "late", type: "food", orderIndex: 1 }],
+              activities: [{ name: "late", type: "breakfast", orderIndex: 1 }],
             },
             {
               dayNumber: 1,
               activities: [
-                { name: "second", type: "food", orderIndex: 1 },
-                { name: "first", type: "food", orderIndex: 0 },
+                { name: "second", type: "breakfast", orderIndex: 1 },
+                { name: "first", type: "breakfast", orderIndex: 0 },
               ],
             },
           ],
@@ -173,7 +173,7 @@ describe("trip data layer", () => {
               activities: [
                 {
                   name: "Tram 28",
-                  type: "sightseeing",
+                  type: "activity",
                   orderIndex: 0,
                   latitude: 38.7123,
                   longitude: -9.1394,

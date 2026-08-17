@@ -86,13 +86,10 @@ export const verification = pgTable(
 );
 
 export const activityType = pgEnum("activity_type", [
-  "sightseeing",
-  "food",
-  "transport",
-  "accommodation",
-  "entertainment",
-  "shopping",
-  "other",
+  "breakfast",
+  "lunch",
+  "dinner",
+  "activity",
 ]);
 
 export const trip = pgTable(

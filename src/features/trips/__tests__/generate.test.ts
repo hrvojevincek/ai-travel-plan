@@ -182,17 +182,17 @@ describe("generateTrip", () => {
 });
 
 describe("toCreateTripInput", () => {
-  it("maps meals to 'food' and activities to 'other'", () => {
+  it("preserves slot types breakfast/lunch/dinner/activity", () => {
     const mapped = toCreateTripInput(makeFixture(1));
     const types = mapped.days[0].activities.map((a) => a.type);
     expect(types).toEqual([
-      "food",
-      "other",
-      "other",
-      "food",
-      "other",
-      "other",
-      "food",
+      "breakfast",
+      "activity",
+      "activity",
+      "lunch",
+      "activity",
+      "activity",
+      "dinner",
     ]);
   });
 

@@ -12,8 +12,8 @@ _Avoid_: itinerary, plan, vacation
 One calendar day on a Trip, holding a fixed sequence of Activities.
 
 **Activity**:
-A stop on a Day — a meal or a thing to do — with a name, address, and duration.
-_Avoid_: place, POI, stop (except in prose)
+A stop on a Day — breakfast, lunch, dinner, or something to do — with a name, address, and duration.
+_Avoid_: place, POI, stop (except in prose); food/other as types
 
 **Place lookup**:
 Attaching a real-world place (coordinates, place identity, photo) to an Activity from its name, address, and destination. A miss is a valid outcome: the Activity still exists without a pin.

@@ -22,7 +22,7 @@ describe("trip schema", () => {
       id: "a1",
       dayId: "d1",
       name: "Tram 28",
-      type: "sightseeing",
+      type: "activity",
       orderIndex: 0,
     });
 
@@ -53,7 +53,7 @@ describe("trip schema", () => {
       id: "a1",
       dayId: "d1",
       name: "one",
-      type: "food",
+      type: "breakfast",
       orderIndex: 0,
     });
 
@@ -62,7 +62,7 @@ describe("trip schema", () => {
         id: "a2",
         dayId: "d1",
         name: "two",
-        type: "food",
+        type: "breakfast",
         orderIndex: 0,
       }),
     ).rejects.toThrow();
