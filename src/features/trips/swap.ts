@@ -77,6 +77,8 @@ export async function swapActivity(
     throw new Error(`activity ${activityId} not found in trip ${tripId}`);
 
   const siblings = day.activities.filter((a) => a.id !== activityId);
+  // Snapshot after the throws so the nested proposer keeps narrowed types.
+  const promptBase = { trip, day, target, siblings };
 
   const schema = SwapActivityOutput.extend({ type: z.literal(target.type) });
   const forbiddenNames = new Set<string>(
@@ -89,10 +91,7 @@ export async function swapActivity(
     let duplicate: SwapActivityOutputT | null = null;
     for (let attempt = 1; attempt <= MAX_SWAP_ATTEMPTS; attempt++) {
       const prompt = buildPrompt({
-        trip,
-        day,
-        target,
-        siblings,
+        ...promptBase,
         previousDuplicateName: duplicate?.name ?? null,
         unfindableName,
       });
