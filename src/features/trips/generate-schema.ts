@@ -65,17 +65,15 @@ export function makeGeneratedTripSchema(duration: number) {
 }
 
 // Extends the AI-produced trip with server-resolved place metadata on each
-// activity. All four fields are nullish because:
-//  - Places lookups can legitimately fail per-address,
-//  - older callers (e.g. mock trip) don't carry them at all,
-//  - not every place has a photo.
+// Activity. Keys are required: `null` means Place lookup was attempted and
+// missed. A mock Trip omits these keys entirely (see parseTripForSave).
 // Kept separate from GeneratedTrip so the AI prompt isn't told to produce
 // coords/place_ids itself.
 export const GeneratedResponseActivity = GeneratedActivity.extend({
-  latitude: z.number().min(-90).max(90).nullish(),
-  longitude: z.number().min(-180).max(180).nullish(),
-  placeId: z.string().nullish(),
-  photoReference: z.string().nullish(),
+  latitude: z.number().min(-90).max(90).nullable(),
+  longitude: z.number().min(-180).max(180).nullable(),
+  placeId: z.string().nullable(),
+  photoReference: z.string().nullable(),
 });
 export type GeneratedResponseActivityT = z.infer<
   typeof GeneratedResponseActivity
@@ -94,6 +92,31 @@ export const GeneratedTripResponse = z.object({
   days: z.array(GeneratedResponseDay).min(1),
 });
 export type GeneratedTripResponseT = z.infer<typeof GeneratedTripResponse>;
+
+export type ParsedTripForSave =
+  | { ok: true; kind: "grounded"; trip: GeneratedTripResponseT }
+  | { ok: true; kind: "ungrounded"; trip: GeneratedTripT }
+  | { ok: false; message: string };
+
+/**
+ * Grounded trips already ran Place lookup (`null` pin is a miss).
+ * Ungrounded trips (mock / older payloads) omit coord keys and still
+ * need lookup on save.
+ */
+export function parseTripForSave(raw: unknown): ParsedTripForSave {
+  const grounded = GeneratedTripResponse.safeParse(raw);
+  if (grounded.success) {
+    return { ok: true, kind: "grounded", trip: grounded.data };
+  }
+  const ungrounded = GeneratedTrip.safeParse(raw);
+  if (ungrounded.success) {
+    return { ok: true, kind: "ungrounded", trip: ungrounded.data };
+  }
+  return {
+    ok: false,
+    message: grounded.error.message,
+  };
+}
 
 export function toCreateTripInput(
   g: GeneratedTripT | GeneratedTripResponseT

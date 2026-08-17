@@ -31,6 +31,8 @@ function makeResponse(
       estimatedCost: 10,
       latitude: 38.7 + i * 0.001,
       longitude: -9.14 + i * 0.001,
+      placeId: `ChIJ-${i}`,
+      photoReference: null,
     })),
   };
   return {

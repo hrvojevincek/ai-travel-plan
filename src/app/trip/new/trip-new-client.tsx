@@ -8,7 +8,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/features/auth/components/auth-modal";
 import { parse } from "@/features/trips/generate-request";
-import type { GeneratedTripResponseT } from "@/features/trips/generate-schema";
+import type {
+  GeneratedTripResponseT,
+  GeneratedTripT,
+} from "@/features/trips/generate-schema";
 import { useGeneratedTripQuery } from "@/features/trips/hooks/use-generate-trip";
 import { useSaveTripMutation } from "@/features/trips/hooks/use-save-trip";
 import { mockTrip } from "@/features/trips/mock";
@@ -53,14 +56,14 @@ export function TripNewClient() {
     enabled: parsed.ok && !mock,
   });
 
-  const trip: GeneratedTripResponseT | undefined = mock
-    ? (mockTrip as GeneratedTripResponseT)
+  const trip: GeneratedTripT | GeneratedTripResponseT | undefined = mock
+    ? mockTrip
     : generatedTrip;
 
   const canSave = Boolean(trip) && !saveMutation.isPending;
 
   const runSave = useCallback(
-    (data: GeneratedTripResponseT) => {
+    (data: GeneratedTripT | GeneratedTripResponseT) => {
       const destinationPick =
         placeId && destinationLat != null && destinationLng != null
           ? { placeId, lat: destinationLat, lng: destinationLng }
