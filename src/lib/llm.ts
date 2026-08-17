@@ -1,9 +1,17 @@
 import "server-only";
 
 import { openai } from "@ai-sdk/openai";
-import { generateText, type LanguageModel, Output } from "ai";
+import {
+  generateText,
+  type LanguageModel,
+  NoObjectGeneratedError,
+  Output,
+} from "ai";
 import type { z } from "zod";
 import { abortError } from "@/lib/abort";
+import { parseLlmObject } from "@/lib/parse-llm-object";
+
+export { parseLlmObject };
 
 export const DEFAULT_LLM_TIMEOUT_MS = 45_000;
 export const DEFAULT_STRUCTURED_TEMPERATURE = 0.2;
@@ -37,6 +45,8 @@ export interface GenerateStructuredResult<T> {
  * Structured-object generation with timeout, token logging, and optional
  * fallback model. Injected `model` skips the fallback chain so tests stay
  * hermetic. Client disconnect (`abortSignal`) skips fallback.
+ * If the SDK cannot parse JSON mode output, {@link parseLlmObject} retries
+ * on the raw text (markdown fences / surrounding prose).
  */
 export async function generateObjectResilient<T extends z.ZodType>(
   opts: GenerateObjectResilientOpts<T>
@@ -85,10 +95,20 @@ export async function generateObjectResilient<T extends z.ZodType>(
         usage: result.usage,
       };
     } catch (e) {
-      lastError = e;
       if (opts.abortSignal?.aborted) {
         throw abortError(opts.abortSignal);
       }
+      const recovered = recoverObject(e, opts.schema);
+      if (recovered) {
+        console.info(
+          `[llm] ${opts.context} ok model=${label} ` +
+            `latencyMs=${Date.now() - started} recovered=parse ` +
+            `inputTokens=${recovered.usage.inputTokens ?? "?"} ` +
+            `outputTokens=${recovered.usage.outputTokens ?? "?"}`
+        );
+        return recovered;
+      }
+      lastError = e;
       console.warn(
         `[llm] ${opts.context} failed model=${label} ` +
           `latencyMs=${Date.now() - started}:`,
@@ -100,6 +120,26 @@ export async function generateObjectResilient<T extends z.ZodType>(
   throw lastError instanceof Error
     ? lastError
     : new Error(`[llm] ${opts.context} exhausted all models`);
+}
+
+function recoverObject<T extends z.ZodType>(
+  error: unknown,
+  schema: T
+): GenerateStructuredResult<z.infer<T>> | null {
+  if (!NoObjectGeneratedError.isInstance(error) || error.text == null) {
+    return null;
+  }
+  try {
+    return {
+      object: parseLlmObject(schema, error.text),
+      usage: {
+        inputTokens: error.usage?.inputTokens,
+        outputTokens: error.usage?.outputTokens,
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
 function modelLabel(model: LanguageModel): string {

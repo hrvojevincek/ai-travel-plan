@@ -43,6 +43,44 @@ describe("generateObjectResilient", () => {
     );
   });
 
+  it("recovers a schema-matching object from markdown-fenced JSON", async () => {
+    const fixture = { name: "Pastéis de Belém", cost: 8 };
+    const fenced = new MockLanguageModelV3({
+      doGenerate: async (): Promise<LanguageModelV3GenerateResult> => ({
+        content: [
+          {
+            type: "text",
+            text: `Here you go:\n\`\`\`json\n${JSON.stringify(fixture)}\n\`\`\``,
+          },
+        ],
+        finishReason: { unified: "stop", raw: undefined },
+        usage: {
+          inputTokens: {
+            total: 1,
+            noCache: 1,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: { total: 1, text: 1, reasoning: undefined },
+        },
+        warnings: [],
+      }),
+    });
+
+    const result = await generateObjectResilient({
+      schema: Schema,
+      system: "sys",
+      prompt: "prompt",
+      model: fenced,
+      context: "test-recover",
+    });
+
+    expect(result.object).toEqual(fixture);
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/\[llm\] test-recover ok .*recovered=parse/)
+    );
+  });
+
   it("rejects when the model emits schema-invalid JSON", async () => {
     await expect(
       generateObjectResilient({
