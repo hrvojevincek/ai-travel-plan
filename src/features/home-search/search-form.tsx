@@ -17,7 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { hasMapsApiKey, PlacesAutocomplete } from "@/features/maps";
 import { useGenerateTripMutation } from "@/features/trips/hooks/use-generate-trip";
-import { SearchFormSchema, type SearchFormValues } from "./schema";
+import {
+  GENERATE_REQUEST_LIMITS,
+  SearchFormSchema,
+  type SearchFormValues,
+} from "./schema";
 
 interface SearchFormProps {
   /** Show the preferences textarea. Gated to signed-in users. */
@@ -141,8 +145,8 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
                   {...field}
                   type="number"
                   inputMode="numeric"
-                  min={1}
-                  max={30}
+                  min={GENERATE_REQUEST_LIMITS.minDurationDays}
+                  max={GENERATE_REQUEST_LIMITS.maxDurationDays}
                   className={inputClass}
                   disabled={isPending}
                 />

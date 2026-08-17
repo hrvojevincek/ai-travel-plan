@@ -81,4 +81,28 @@ describe("TripNewClient save auth", () => {
     expect(screen.getByLabelText("Confirm Password")).toBeInTheDocument();
     expect(hoisted.push).not.toHaveBeenCalled();
   });
+
+  it("shows missing-details when duration is out of range", () => {
+    hoisted.search = "destination=Lisbon&duration=99";
+    render(
+      <QueryWrapper>
+        <TripNewClient />
+      </QueryWrapper>
+    );
+    expect(
+      screen.getByRole("heading", { name: "Missing trip details" })
+    ).toBeInTheDocument();
+  });
+
+  it("shows missing-details when duration is absent", () => {
+    hoisted.search = "destination=Lisbon";
+    render(
+      <QueryWrapper>
+        <TripNewClient />
+      </QueryWrapper>
+    );
+    expect(
+      screen.getByRole("heading", { name: "Missing trip details" })
+    ).toBeInTheDocument();
+  });
 });

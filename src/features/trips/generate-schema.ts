@@ -3,16 +3,13 @@ import { ActivityTypeEnum, type CreateTripInputT } from "./schemas";
 
 export const ACTIVITIES_PER_DAY = 7;
 
-export const GeneratedActivityType = ActivityTypeEnum;
-export type GeneratedActivityTypeT = z.infer<typeof GeneratedActivityType>;
-
 export const GeneratedActivity = z.object({
   name: z.string().min(1).describe("Venue or activity name"),
   description: z
     .string()
     .min(1)
     .describe("One short sentence describing the stop"),
-  type: GeneratedActivityType.describe(
+  type: ActivityTypeEnum.describe(
     "Slot type: breakfast, lunch, dinner, or activity"
   ),
   durationMinutes: z
