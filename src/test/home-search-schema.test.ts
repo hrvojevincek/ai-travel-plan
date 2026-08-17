@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildTripNewHref, SearchFormSchema } from "../schema";
+import {
+  buildTripNewHref,
+  SearchFormSchema,
+} from "@/features/home-search/schema";
 
 describe("SearchFormSchema", () => {
   it("accepts valid input", () => {
@@ -88,7 +91,7 @@ describe("buildTripNewHref", () => {
     const url = new URL(href, "http://localhost");
     expect(url.searchParams.get("destination")).toBe("São Paulo");
     expect(url.searchParams.get("preferences")).toBe(
-      "no museums, vegan & gluten-free",
+      "no museums, vegan & gluten-free"
     );
     expect(href).toContain("S%C3%A3o+Paulo");
   });

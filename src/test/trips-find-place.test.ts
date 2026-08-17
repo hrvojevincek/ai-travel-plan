@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { findPlaceMany, findPlaceOne } from "../find-place";
+import { findPlaceMany, findPlaceOne } from "@/features/trips/find-place";
 
 const originalEnv = { ...process.env };
 

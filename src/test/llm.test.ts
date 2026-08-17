@@ -5,8 +5,8 @@ import type {
 import { MockLanguageModelV3 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { generateObjectResilient } from "@/lib/llm";
 import { mockObjectModel } from "@/test/helpers/ai";
-import { generateObjectResilient } from "../llm";
 
 const Schema = z.object({
   name: z.string(),

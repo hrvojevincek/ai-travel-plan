@@ -34,7 +34,7 @@ vi.mock("@/features/trips/view", () => ({
   ),
 }));
 
-import { TripNewClient } from "../trip-new-client";
+import { TripNewClient } from "@/app/trip/new/trip-new-client";
 
 describe("TripNewClient save auth", () => {
   beforeEach(() => {

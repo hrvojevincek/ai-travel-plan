@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { parseLlmObject } from "../parse-llm-object";
+import { parseLlmObject } from "@/lib/parse-llm-object";
 
 const Schema = z.object({
   destination: z.string(),

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchGeneratedTrip } from "@/features/trips/api/generate";
 import { mockTrip } from "@/features/trips/mock";
-import { fetchGeneratedTrip } from "../generate";
 
 describe("fetchGeneratedTrip", () => {
   afterEach(() => {

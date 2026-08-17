@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { AppDb } from "@/db/client";
 import { user } from "@/db/schema";
+import { createTrip, getTrip } from "@/features/trips/data";
+import type { CreateTripInputT } from "@/features/trips/schemas";
+import { tripRowToPartial } from "@/features/trips/view/adapt";
 import { type TestDbHandle, useTestDb } from "@/test/helpers/db";
-import { createTrip, getTrip } from "../../data";
-import type { CreateTripInputT } from "../../schemas";
-import { tripRowToPartial } from "../adapt";
 
 function asAppDb(handle: TestDbHandle): AppDb {
   return handle.db as unknown as AppDb;

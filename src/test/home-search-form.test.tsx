@@ -16,7 +16,7 @@ vi.mock("@/features/trips/api/generate", () => ({
   fetchGeneratedTrip: hoisted.fetchGeneratedTripMock,
 }));
 
-import { SearchForm } from "../search-form";
+import { SearchForm } from "@/features/home-search/search-form";
 
 function renderSearchForm(ui: React.ReactElement) {
   return render(ui, { wrapper: QueryWrapper });

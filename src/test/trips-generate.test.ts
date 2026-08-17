@@ -1,12 +1,12 @@
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
-import { mockObjectModel } from "@/test/helpers/ai";
 import {
   ACTIVITIES_PER_DAY,
   type GeneratedTripT,
   generateTrip,
   toCreateTripInput,
-} from "../generate";
+} from "@/features/trips/generate";
+import { mockObjectModel } from "@/test/helpers/ai";
 
 function makeFixture(days = 2): GeneratedTripT {
   return {
@@ -211,7 +211,7 @@ describe("toCreateTripInput", () => {
   });
 
   it("produces output that satisfies the createTrip input contract (schema round-trip)", async () => {
-    const { CreateTripInput } = await import("../schemas");
+    const { CreateTripInput } = await import("@/features/trips/schemas");
     const mapped = toCreateTripInput(makeFixture(3));
     expect(() => CreateTripInput.parse(mapped)).not.toThrow();
   });

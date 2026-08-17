@@ -2,9 +2,9 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import type { AppDb } from "@/db/client";
 import { generationCache } from "@/db/schema";
+import { buildCacheKey, readCache, writeCache } from "@/features/trips/cache";
+import type { GeneratedTripResponseT } from "@/features/trips/generate-schema";
 import { type TestDbHandle, useTestDb } from "@/test/helpers/db";
-import { buildCacheKey, readCache, writeCache } from "../cache";
-import type { GeneratedTripResponseT } from "../generate-schema";
 
 function asAppDb(handle: TestDbHandle): AppDb {
   return handle.db as unknown as AppDb;

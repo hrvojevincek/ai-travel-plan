@@ -40,7 +40,7 @@ describe("trip schema", () => {
     await db.insert(day).values({ id: "d1", tripId: "t1", dayNumber: 1 });
 
     await expect(
-      db.insert(day).values({ id: "d2", tripId: "t1", dayNumber: 1 }),
+      db.insert(day).values({ id: "d2", tripId: "t1", dayNumber: 1 })
     ).rejects.toThrow();
   });
 
@@ -64,7 +64,7 @@ describe("trip schema", () => {
         name: "two",
         type: "breakfast",
         orderIndex: 0,
-      }),
+      })
     ).rejects.toThrow();
   });
 });
