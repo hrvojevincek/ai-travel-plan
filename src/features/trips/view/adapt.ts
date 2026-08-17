@@ -1,14 +1,8 @@
 import type { TripWithDays } from "../data";
-import type { GeneratedActivityTypeT } from "../generate-schema";
 import type { PartialTrip } from "./trip-view";
 
-const ACTIVITIES_PER_DAY = 7;
-
 /**
- * Maps a persisted Trip (with its days + activities) into the partial-trip
- * shape that TripView consumes. The generator guarantees a fixed slot order
- * (0=breakfast, 3=lunch, 6=dinner, else activity), so we use orderIndex to
- * infer the UI category — the DB enum only stores `food`/`other`.
+ * Maps a persisted Trip into the partial-trip shape that TripView consumes.
  */
 export function tripRowToPartial(row: TripWithDays): PartialTrip {
   return {
@@ -24,7 +18,7 @@ export function tripRowToPartial(row: TripWithDays): PartialTrip {
         id: a.id,
         name: a.name,
         description: a.description ?? undefined,
-        type: mealTypeForIndex(a.orderIndex),
+        type: a.type,
         durationMinutes: a.durationMinutes ?? undefined,
         address: a.address ?? undefined,
         estimatedCost:
@@ -36,12 +30,4 @@ export function tripRowToPartial(row: TripWithDays): PartialTrip {
       })),
     })),
   };
-}
-
-function mealTypeForIndex(i: number): GeneratedActivityTypeT {
-  const slot = i % ACTIVITIES_PER_DAY;
-  if (slot === 0) return "breakfast";
-  if (slot === 3) return "lunch";
-  if (slot === 6) return "dinner";
-  return "activity";
 }

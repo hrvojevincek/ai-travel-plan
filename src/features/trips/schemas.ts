@@ -1,13 +1,10 @@
 import { z } from "zod";
 
 export const ActivityTypeEnum = z.enum([
-  "sightseeing",
-  "food",
-  "transport",
-  "accommodation",
-  "entertainment",
-  "shopping",
-  "other",
+  "breakfast",
+  "lunch",
+  "dinner",
+  "activity",
 ]);
 export type ActivityTypeValue = z.infer<typeof ActivityTypeEnum>;
 

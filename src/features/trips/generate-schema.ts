@@ -1,14 +1,9 @@
 import { z } from "zod";
-import type { ActivityTypeValue, CreateTripInputT } from "./schemas";
+import { ActivityTypeEnum, type CreateTripInputT } from "./schemas";
 
 export const ACTIVITIES_PER_DAY = 7;
 
-export const GeneratedActivityType = z.enum([
-  "breakfast",
-  "lunch",
-  "dinner",
-  "activity",
-]);
+export const GeneratedActivityType = ActivityTypeEnum;
 export type GeneratedActivityTypeT = z.infer<typeof GeneratedActivityType>;
 
 export const GeneratedActivity = z.object({
@@ -117,7 +112,7 @@ export function toCreateTripInput(
       activities: d.activities.map((a, orderIndex) => ({
         name: a.name,
         description: a.description,
-        type: mapActivityType(a.type),
+        type: a.type,
         durationMinutes: a.durationMinutes,
         address: a.address,
         estimatedCost: a.estimatedCost,
@@ -130,8 +125,4 @@ export function toCreateTripInput(
       })),
     })),
   };
-}
-
-function mapActivityType(t: GeneratedActivityTypeT): ActivityTypeValue {
-  return t === "activity" ? "other" : "food";
 }
