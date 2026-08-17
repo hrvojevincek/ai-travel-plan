@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { lookupActivityPlaces } from "../activity-places";
-import type { FindPlaceResult } from "../find-place";
+import { lookupActivityPlaces } from "@/features/trips/activity-places";
+import type { FindPlaceResult } from "@/features/trips/find-place";
 
 function place(overrides: Partial<FindPlaceResult> = {}): FindPlaceResult {
   return {

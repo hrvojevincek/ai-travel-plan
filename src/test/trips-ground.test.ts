@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FindPlaceResult } from "@/features/trips/find-place";
+import type { GeneratedTripT } from "@/features/trips/generate-schema";
+import { ACTIVITIES_PER_DAY } from "@/features/trips/generate-schema";
+import {
+  generateTripWithGrounding,
+  MAX_GROUNDING_PASSES,
+} from "@/features/trips/ground";
 import { mockObjectModel } from "@/test/helpers/ai";
-import type { FindPlaceResult } from "../find-place";
-import type { GeneratedTripT } from "../generate-schema";
-import { ACTIVITIES_PER_DAY } from "../generate-schema";
-import { generateTripWithGrounding, MAX_GROUNDING_PASSES } from "../ground";
 
 function place(overrides: Partial<FindPlaceResult> = {}): FindPlaceResult {
   return {

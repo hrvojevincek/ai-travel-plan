@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { PartialTrip } from "@/features/trips/view/trip-view";
+import { TripView } from "@/features/trips/view/trip-view";
 import { QueryWrapper } from "@/test/helpers/query-wrapper";
-import type { PartialTrip } from "../trip-view";
-import { TripView } from "../trip-view";
 
 vi.mock("@/features/maps", () => ({
   TripMap: () => <div data-testid="trip-map">Trip map</div>,

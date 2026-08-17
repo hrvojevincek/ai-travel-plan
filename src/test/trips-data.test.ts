@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AppDb } from "@/db/client";
 import { activity, day, trip, user } from "@/db/schema";
-import { type TestDbHandle, useTestDb } from "@/test/helpers/db";
 import {
   createTrip,
   deleteTrip,
@@ -11,8 +10,9 @@ import {
   getUserTripSummaries,
   getUserTrips,
   updateActivity,
-} from "../data";
-import type { CreateTripInputT } from "../schemas";
+} from "@/features/trips/data";
+import type { CreateTripInputT } from "@/features/trips/schemas";
+import { type TestDbHandle, useTestDb } from "@/test/helpers/db";
 
 function asAppDb(handle: TestDbHandle): AppDb {
   return handle.db as unknown as AppDb;

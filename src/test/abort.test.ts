@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAbortError } from "../abort";
+import { isAbortError } from "@/lib/abort";
 
 describe("isAbortError", () => {
   it("matches AbortError and CancelledError names", () => {
