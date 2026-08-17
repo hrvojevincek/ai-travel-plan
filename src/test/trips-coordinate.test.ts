@@ -46,6 +46,8 @@ function cannedTrip(
           estimatedCost: 10,
           latitude: 38.7,
           longitude: -9.14,
+          placeId: "ChIJ",
+          photoReference: null,
         })),
       },
     ],

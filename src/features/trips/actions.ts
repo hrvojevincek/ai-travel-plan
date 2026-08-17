@@ -7,7 +7,7 @@ import { getSession } from "@/features/auth";
 import { logAndFail } from "@/lib/action-error";
 import { lookupActivityPlaces } from "./activity-places";
 import { createTrip, deleteTripForUser, getTrip, updateActivity } from "./data";
-import { GeneratedTripResponse, toCreateTripInput } from "./generate-schema";
+import { parseTripForSave, toCreateTripInput } from "./generate-schema";
 import { getDestinationImage } from "./image";
 import type { ActivityTypeValue } from "./schemas";
 import { swapActivity } from "./swap";
@@ -35,16 +35,16 @@ export async function saveTrip(
   const session = await getSession();
   if (!session) return { ok: false, code: "UNAUTH" };
 
-  const parsed = GeneratedTripResponse.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, code: "INVALID", message: parsed.error.message };
+  const parsed = parseTripForSave(raw);
+  if (!parsed.ok) {
+    return { ok: false, code: "INVALID", message: parsed.message };
   }
 
   const destinationPick = opts.destination
     ? DestinationPick.safeParse(opts.destination)
     : null;
 
-  const input = toCreateTripInput(parsed.data);
+  const input = toCreateTripInput(parsed.trip);
 
   if (destinationPick?.success) {
     input.destinationLat = destinationPick.data.lat;
@@ -52,34 +52,26 @@ export async function saveTrip(
     input.destinationPlaceId = destinationPick.data.placeId;
   }
 
-  // Look up only activities that were never attempted (e.g. mock trips that
-  // skipped the generate endpoint). Activities that arrived from the cached
-  // /api/trips/generate response already carry explicit `null` for failed
-  // lookups — retrying those here would burn Places quota on addresses we
-  // already know are bad. `undefined` means "never attempted"; `null` means
-  // "attempted and failed"; a string/number means "resolved".
-  const missing: {
-    dayIdx: number;
-    actIdx: number;
-    name: string;
-    address: string;
-  }[] = [];
-  parsed.data.days.forEach((d, dayIdx) => {
-    d.activities.forEach((a, actIdx) => {
-      if (a.latitude === undefined || a.longitude === undefined) {
+  if (parsed.kind === "ungrounded") {
+    const missing: {
+      dayIdx: number;
+      actIdx: number;
+      name: string;
+      address: string;
+    }[] = [];
+    parsed.trip.days.forEach((d, dayIdx) => {
+      d.activities.forEach((a, actIdx) => {
         missing.push({
           dayIdx,
           actIdx,
           name: a.name,
           address: a.address,
         });
-      }
+      });
     });
-  });
-  if (missing.length > 0) {
     const places = await lookupActivityPlaces(
       missing.map((m) => ({ name: m.name, address: m.address })),
-      parsed.data.destination
+      parsed.trip.destination
     );
     missing.forEach((m, i) => {
       const p = places[i];
@@ -93,7 +85,7 @@ export async function saveTrip(
     });
   }
 
-  const image = await getDestinationImage(parsed.data.destination);
+  const image = await getDestinationImage(parsed.trip.destination);
   if (image) {
     input.imageUrl = image.url;
     input.imageAttribution = image.attribution;

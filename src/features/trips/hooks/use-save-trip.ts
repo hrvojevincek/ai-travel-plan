@@ -2,10 +2,13 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { type SaveTripOpts, type SaveTripResult, saveTrip } from "../actions";
-import type { GeneratedTripResponseT } from "../generate-schema";
+import type {
+  GeneratedTripResponseT,
+  GeneratedTripT,
+} from "../generate-schema";
 
 interface SaveTripVariables {
-  trip: GeneratedTripResponseT;
+  trip: GeneratedTripT | GeneratedTripResponseT;
   opts?: SaveTripOpts;
 }
 
