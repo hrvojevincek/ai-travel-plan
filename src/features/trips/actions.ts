@@ -7,12 +7,9 @@ import { getSession } from "@/features/auth";
 import { logAndFail } from "@/lib/action-error";
 import { lookupActivityPlaces } from "./activity-places";
 import { createTrip, deleteTripForUser, getTrip, updateActivity } from "./data";
-import {
-  type GeneratedActivityTypeT,
-  GeneratedTripResponse,
-  toCreateTripInput,
-} from "./generate-schema";
+import { GeneratedTripResponse, toCreateTripInput } from "./generate-schema";
 import { getDestinationImage } from "./image";
+import type { ActivityTypeValue } from "./schemas";
 import { swapActivity } from "./swap";
 
 export type SaveTripResult =
@@ -137,7 +134,7 @@ export interface SwappedActivity {
   id: string;
   name: string;
   description: string | null;
-  type: GeneratedActivityTypeT;
+  type: ActivityTypeValue;
   durationMinutes: number | null;
   address: string | null;
   estimatedCost: number | null;
@@ -174,22 +171,17 @@ export async function swapActivityAction(
 
   try {
     const suggestion = await swapActivity(db, tripId, activityId);
-    const [place] = await lookupActivityPlaces(
-      [{ name: suggestion.name, address: suggestion.address }],
-      trip.destination
-    );
 
     await updateActivity(db, activityId, {
       name: suggestion.name,
       description: suggestion.description,
-      // Preserve the existing enum type — swapActivity enforces it.
       durationMinutes: suggestion.durationMinutes,
       address: suggestion.address,
       estimatedCost: suggestion.estimatedCost,
-      latitude: place?.latitude ?? null,
-      longitude: place?.longitude ?? null,
-      placeId: place?.placeId ?? null,
-      photoReference: place?.photoReference ?? null,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+      placeId: suggestion.placeId,
+      photoReference: suggestion.photoReference,
     });
 
     revalidatePath(`/trip/${tripId}`);
@@ -204,10 +196,10 @@ export async function swapActivityAction(
         durationMinutes: suggestion.durationMinutes,
         address: suggestion.address,
         estimatedCost: suggestion.estimatedCost,
-        latitude: place?.latitude ?? null,
-        longitude: place?.longitude ?? null,
-        placeId: place?.placeId ?? null,
-        photoReference: place?.photoReference ?? null,
+        latitude: suggestion.latitude,
+        longitude: suggestion.longitude,
+        placeId: suggestion.placeId,
+        photoReference: suggestion.photoReference,
       },
     };
   } catch (e) {

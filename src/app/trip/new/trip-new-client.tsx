@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/features/auth/components/auth-modal";
+import { parse } from "@/features/trips/generate-request";
 import type { GeneratedTripResponseT } from "@/features/trips/generate-schema";
 import { useGeneratedTripQuery } from "@/features/trips/hooks/use-generate-trip";
 import { useSaveTripMutation } from "@/features/trips/hooks/use-save-trip";
@@ -27,12 +28,10 @@ function parseNumericParam(
 export function TripNewClient() {
   const params = useSearchParams();
   const router = useRouter();
-  const destination = params.get("destination") ?? "";
-  const duration = Math.max(
-    1,
-    Math.min(30, Number(params.get("duration")) || 3)
-  );
-  const preferences = params.get("preferences") ?? undefined;
+  const parsed = parse(params);
+  const destination = parsed.ok ? parsed.request.destination : "";
+  const duration = parsed.ok ? parsed.request.duration : 1;
+  const preferences = parsed.ok ? parsed.request.preferences : undefined;
   const mock = params.get("mock") === "1";
   const destinationLat = parseNumericParam(params.get("lat"), -90, 90);
   const destinationLng = parseNumericParam(params.get("lng"), -180, 180);
@@ -51,7 +50,7 @@ export function TripNewClient() {
     destination,
     duration,
     preferences,
-    enabled: !mock,
+    enabled: parsed.ok && !mock,
   });
 
   const trip: GeneratedTripResponseT | undefined = mock
@@ -105,7 +104,7 @@ export function TripNewClient() {
     runSave(trip);
   }, [shouldAutoSave, trip, runSave]);
 
-  if (!destination) {
+  if (!parsed.ok) {
     return <InvalidState />;
   }
 

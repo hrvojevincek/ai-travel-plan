@@ -10,7 +10,7 @@ import {
   MarkerContent,
   useMap,
 } from "@/components/ui/map";
-import type { GeneratedActivityTypeT } from "@/features/trips/generate-schema";
+import type { ActivityTypeValue } from "@/features/trips/schemas";
 import { cn } from "@/lib/utils";
 import { useActivityPhotoQuery } from "./hooks/use-activity-photo";
 
@@ -20,10 +20,8 @@ export interface MapActivity {
   latitude: number;
   longitude: number;
   dayNumber: number;
-  /** Activity category. */
-  type?: GeneratedActivityTypeT;
+  type?: ActivityTypeValue;
   placeId?: string | null;
-  /** Google Places photo reference — when present, popup lazy-loads it. */
   photoReference?: string | null;
 }
 

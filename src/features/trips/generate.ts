@@ -6,14 +6,13 @@ import { generateObjectResilient } from "@/lib/llm";
 import {
   ACTIVITIES_PER_DAY,
   GeneratedActivity,
-  type GeneratedActivityTypeT,
   type GeneratedTripT,
   makeGeneratedTripSchema,
 } from "./generate-schema";
+import type { ActivityTypeValue } from "./schemas";
 
 export type {
   GeneratedActivityT,
-  GeneratedActivityTypeT,
   GeneratedDayT,
   GeneratedResponseActivityT,
   GeneratedResponseDayT,
@@ -23,7 +22,6 @@ export type {
 export {
   ACTIVITIES_PER_DAY,
   GeneratedActivity,
-  GeneratedActivityType,
   GeneratedDay,
   GeneratedResponseActivity,
   GeneratedResponseDay,
@@ -70,7 +68,7 @@ export interface UngroundedSlot {
   dayIdx: number;
   actIdx: number;
   previousName: string;
-  type: GeneratedActivityTypeT;
+  type: ActivityTypeValue;
 }
 
 const ReplacementBatch = z.object({

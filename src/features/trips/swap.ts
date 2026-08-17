@@ -4,7 +4,12 @@ import type { LanguageModel } from "ai";
 import { z } from "zod";
 import type { AppDb } from "@/db/client";
 import { generateObjectResilient } from "@/lib/llm";
+import {
+  type ActivityPlaceLookup,
+  lookupActivityPlaces,
+} from "./activity-places";
 import { getTrip } from "./data";
+import { type FindPlaceResult, findPlaceMany } from "./find-place";
 import { ActivityTypeEnum } from "./schemas";
 
 export const SwapActivityOutput = z.object({
@@ -30,9 +35,17 @@ export const SwapActivityOutput = z.object({
 });
 export type SwapActivityOutputT = z.infer<typeof SwapActivityOutput>;
 
+export type SwapActivityReplacement = SwapActivityOutputT & {
+  latitude: number | null;
+  longitude: number | null;
+  placeId: string | null;
+  photoReference: string | null;
+};
+
 export interface SwapActivityOpts {
   model?: LanguageModel;
   abortSignal?: AbortSignal;
+  lookupPlaces?: ActivityPlaceLookup;
 }
 
 export const SWAP_SYSTEM_PROMPT = [
@@ -49,7 +62,7 @@ export async function swapActivity(
   tripId: string,
   activityId: string,
   opts: SwapActivityOpts = {}
-): Promise<SwapActivityOutputT> {
+): Promise<SwapActivityReplacement> {
   const trip = await getTrip(db, tripId);
   if (!trip) throw new Error(`trip ${tripId} not found`);
 
@@ -70,36 +83,86 @@ export async function swapActivity(
     [target.name, ...siblings.map((s) => s.name)].map(normalizeName)
   );
 
-  let duplicate: SwapActivityOutputT | null = null;
-  for (let attempt = 1; attempt <= MAX_SWAP_ATTEMPTS; attempt++) {
-    const prompt = buildPrompt({
-      trip,
-      day,
-      target,
-      siblings,
-      previousDuplicateName: duplicate?.name ?? null,
-    });
-    const { object } = await generateObjectResilient({
-      schema,
-      system: SWAP_SYSTEM_PROMPT,
-      prompt,
-      model: opts.model,
-      abortSignal: opts.abortSignal,
-      context: "swapActivity",
-    });
-    if (!forbiddenNames.has(normalizeName(object.name))) return object;
-    duplicate = object;
+  async function proposeUnique(
+    unfindableName: string | null
+  ): Promise<SwapActivityOutputT> {
+    let duplicate: SwapActivityOutputT | null = null;
+    for (let attempt = 1; attempt <= MAX_SWAP_ATTEMPTS; attempt++) {
+      const prompt = buildPrompt({
+        trip,
+        day,
+        target,
+        siblings,
+        previousDuplicateName: duplicate?.name ?? null,
+        unfindableName,
+      });
+      const { object } = await generateObjectResilient({
+        schema,
+        system: SWAP_SYSTEM_PROMPT,
+        prompt,
+        model: opts.model,
+        abortSignal: opts.abortSignal,
+        context: "swapActivity",
+      });
+      if (!forbiddenNames.has(normalizeName(object.name))) return object;
+      duplicate = object;
+    }
+
+    throw new Error(
+      `swapActivity: model returned duplicate activity "${duplicate?.name}" after ${MAX_SWAP_ATTEMPTS} attempts`
+    );
   }
 
-  throw new Error(
-    `swapActivity: model returned duplicate activity "${duplicate?.name}" after ${MAX_SWAP_ATTEMPTS} attempts`
-  );
+  let suggestion = await proposeUnique(null);
+
+  if (!placesKeyConfigured() && !opts.lookupPlaces) {
+    return attachPlace(suggestion, null);
+  }
+
+  const lookup = opts.lookupPlaces ?? findPlaceMany;
+  const place = await lookupOne(suggestion, trip.destination, lookup);
+  if (place) return attachPlace(suggestion, place);
+
+  forbiddenNames.add(normalizeName(suggestion.name));
+  suggestion = await proposeUnique(suggestion.name);
+  const repaired = await lookupOne(suggestion, trip.destination, lookup);
+  return attachPlace(suggestion, repaired);
 }
 
 const MAX_SWAP_ATTEMPTS = 2;
 
+function placesKeyConfigured(): boolean {
+  return Boolean(process.env.GOOGLE_MAPS_SERVER_KEY?.trim());
+}
+
 function normalizeName(name: string): string {
   return name.trim().toLowerCase();
+}
+
+function attachPlace(
+  suggestion: SwapActivityOutputT,
+  place: FindPlaceResult | null
+): SwapActivityReplacement {
+  return {
+    ...suggestion,
+    latitude: place?.latitude ?? null,
+    longitude: place?.longitude ?? null,
+    placeId: place?.placeId ?? null,
+    photoReference: place?.photoReference ?? null,
+  };
+}
+
+async function lookupOne(
+  suggestion: SwapActivityOutputT,
+  destination: string,
+  lookup: ActivityPlaceLookup
+): Promise<FindPlaceResult | null> {
+  const [place] = await lookupActivityPlaces(
+    [{ name: suggestion.name, address: suggestion.address }],
+    destination,
+    lookup
+  );
+  return place ?? null;
 }
 
 interface PromptArgs {
@@ -113,6 +176,7 @@ interface PromptArgs {
   };
   siblings: Array<{ name: string; type: string; orderIndex: number }>;
   previousDuplicateName: string | null;
+  unfindableName: string | null;
 }
 
 function buildPrompt({
@@ -121,6 +185,7 @@ function buildPrompt({
   target,
   siblings,
   previousDuplicateName,
+  unfindableName,
 }: PromptArgs): string {
   const siblingList = siblings.length
     ? siblings
@@ -132,6 +197,10 @@ function buildPrompt({
 
   const retryNote = previousDuplicateName
     ? `Your previous suggestion "${previousDuplicateName}" duplicates an existing activity. Pick a completely different one.`
+    : "";
+
+  const unfindableNote = unfindableName
+    ? `Your previous suggestion "${unfindableName}" could not be found on Google Maps. Pick a completely different real, searchable venue.`
     : "";
 
   return [
@@ -146,6 +215,7 @@ function buildPrompt({
     `- Type: ${target.type}`,
     "",
     retryNote,
+    unfindableNote,
     "Output requirements:",
     `- type MUST be "${target.type}" (preserve the slot).`,
     "- Name, description, address, durationMinutes, estimatedCost for the new activity.",

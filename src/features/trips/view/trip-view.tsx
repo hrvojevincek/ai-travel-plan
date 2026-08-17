@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type MapActivity, TripMap } from "@/features/maps";
 import { activityPhotoQueryOptions } from "@/features/maps/hooks/use-activity-photo";
 import { cn } from "@/lib/utils";
-import type { GeneratedActivityTypeT, GeneratedTripT } from "../generate-schema";
+import type { GeneratedTripT } from "../generate-schema";
+import type { ActivityTypeValue } from "../schemas";
 
 type PartialActivity = Partial<
   GeneratedTripT["days"][number]["activities"][number]
@@ -300,7 +301,7 @@ function DaySection({
   );
 }
 
-const typeLabel: Record<GeneratedActivityTypeT, string> = {
+const typeLabel: Record<ActivityTypeValue, string> = {
   breakfast: "Breakfast",
   lunch: "Lunch",
   dinner: "Dinner",
