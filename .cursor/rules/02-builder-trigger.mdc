@@ -1,0 +1,15 @@
+---
+description: Activates Stage 2 autonomous builder when execution plan exists
+alwaysApply: false
+---
+
+# Builder trigger
+
+When the user says **Start Building**, **Run Execution Plan**, **Stage 2**, or references `docs/tasks/*/EXECUTION_PLAN.md`:
+
+1. Read and follow `.agents/skills/builder-pipeline/SKILL.md`
+2. **Pipeline mode** — commits, pushes, and PRs are pre-authorized per slice; use `no-mistakes axi run --yes`
+3. Follow `/tdd` vertical-slice discipline — never horizontal slices
+4. Use `pnpm test:run` and `pnpm lint`, not pytest/eslint
+5. Use **gh-axi** for GitHub, not bare `gh`
+6. For overnight or parallel work, offer GNHF or Firstmate dispatch per `docs/agents/pipeline.md`

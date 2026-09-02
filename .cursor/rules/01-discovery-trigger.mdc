@@ -1,0 +1,14 @@
+---
+description: Activates Stage 1 discovery when the user ideates a new feature
+alwaysApply: false
+---
+
+# Discovery trigger
+
+When the user says **Discovery**, **New Feature**, **Stage 1**, or describes a product idea (including via voice):
+
+1. Read and follow `.agents/skills/discovery-pipeline/SKILL.md`
+2. Compose `/grilling`, `/domain-modeling`, `/to-prd`, and `/to-issues` — do not reinvent those workflows
+3. **Do not write code** until `EXECUTION_PLAN.md` exists and the captain approves
+4. Use Voyago vocabulary from `CONTEXT.md`
+5. End with the Stage 2 handoff phrase from the discovery skill

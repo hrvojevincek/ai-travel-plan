@@ -19,3 +19,26 @@ Next.js **16.3.1** App Router (`src/app`). Do not use Pages Router APIs (`pages/
 3. **Runtime:** `next-devtools` MCP after `pnpm dev` (`.mcp.json` / `.cursor/mcp.json`)
 
 Cache Components (`cacheComponents: true`) is **not** enabled. Use the previous caching model until that migration is done: `node_modules/next/dist/docs/01-app/02-guides/caching-without-cache-components.md`.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `hrvojevincek/ai-travel-plan` via gh-axi. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles mapped to GitHub labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+
+### Two-stage pipeline
+
+Discovery → `docs/tasks/feature-<slug>/` → autonomous builder with no-mistakes. See `docs/agents/pipeline.md`.
+
+| Stage | Skill | Trigger |
+|-------|-------|---------|
+| 1 Discovery | `discovery-pipeline` | "Discovery", "New Feature" |
+| 2 Builder | `builder-pipeline` | "Start Building", "Run Execution Plan" |
