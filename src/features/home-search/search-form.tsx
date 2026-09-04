@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,13 @@ import {
   type SearchFormValues,
 } from "./schema";
 
+const LOADING_STEPS = [
+  "Finding the best places",
+  "Crafting your day-by-day itinerary",
+  "Building your map pins",
+  "Finalizing the trip view",
+] as const;
+
 interface SearchFormProps {
   /** Show the preferences textarea. Gated to signed-in users. */
   showPreferences?: boolean;
@@ -42,15 +49,27 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
   });
 
   const [loadingStep, setLoadingStep] = useState(0);
-  const loadingSteps = useMemo(
-    () => [
-      "Finding the best places",
-      "Crafting your day-by-day itinerary",
-      "Building your map pins",
-      "Finalizing the trip view",
-    ],
-    []
+
+  const handleDestinationPick = useCallback(
+    (pick: {
+      description: string;
+      placeId: string;
+      lat: number;
+      lng: number;
+    }) => {
+      form.setValue("destination", pick.description);
+      form.setValue("placeId", pick.placeId);
+      form.setValue("destinationLat", pick.lat);
+      form.setValue("destinationLng", pick.lng);
+    },
+    [form]
   );
+
+  const handleClearDestinationPick = useCallback(() => {
+    form.setValue("placeId", undefined);
+    form.setValue("destinationLat", undefined);
+    form.setValue("destinationLng", undefined);
+  }, [form]);
 
   useEffect(() => {
     if (!generateMutation.isPending) {
@@ -59,12 +78,12 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
 
     const timer = window.setInterval(() => {
       setLoadingStep((current) =>
-        Math.min(current + 1, loadingSteps.length - 1)
+        Math.min(current + 1, LOADING_STEPS.length - 1)
       );
     }, 1200);
 
     return () => window.clearInterval(timer);
-  }, [generateMutation.isPending, loadingSteps.length]);
+  }, [generateMutation.isPending]);
 
   const submit = form.handleSubmit((values) => {
     setLoadingStep(0);
@@ -101,17 +120,8 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
                     onValueChange={field.onChange}
                     onBlur={field.onBlur}
                     inputRef={field.ref}
-                    onPick={(pick) => {
-                      form.setValue("destination", pick.description);
-                      form.setValue("placeId", pick.placeId);
-                      form.setValue("destinationLat", pick.lat);
-                      form.setValue("destinationLng", pick.lng);
-                    }}
-                    onClearPick={() => {
-                      form.setValue("placeId", undefined);
-                      form.setValue("destinationLat", undefined);
-                      form.setValue("destinationLng", undefined);
-                    }}
+                    onPick={handleDestinationPick}
+                    onClearPick={handleClearDestinationPick}
                     placeholder="Lisbon, Portugal"
                     autoComplete="off"
                     className={inputClass}
@@ -194,7 +204,7 @@ export function SearchForm({ showPreferences = false }: SearchFormProps = {}) {
         </Button>
         {isPending && (
           <TripGenerationProgress
-            steps={loadingSteps}
+            steps={LOADING_STEPS}
             currentStep={loadingStep}
             destination={form.getValues("destination")}
           />
@@ -209,7 +219,7 @@ function TripGenerationProgress({
   currentStep,
   destination,
 }: {
-  steps: string[];
+  steps: readonly string[];
   currentStep: number;
   destination: string;
 }) {

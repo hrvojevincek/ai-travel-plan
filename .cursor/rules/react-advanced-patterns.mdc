@@ -1,0 +1,68 @@
+---
+description: Advanced React architecture, re-render optimization, memoization, and reconciliation patterns (Makarevich-style)
+globs: "**/*.{tsx,ts}"
+alwaysApply: false
+---
+
+# Advanced React Architecture & Performance Guidelines
+
+Act as a Senior React Engineer. Follow these rules when analyzing, refactoring, or generating React code.
+
+## 1. Re-render Optimization & Component Structure
+
+### Core Principle
+- Primary source of re-renders: **state updates**.
+- When a component updates state, React recursively re-renders all nested components down its sub-tree unless memoized.
+- **Props changing alone do NOT trigger re-renders** on unmemoized components; React does not diff props unless memoized.
+
+### Composition Over Memoization
+- **Move state down:** Isolate volatile state into small components so updates do not re-render the parent tree.
+- **Elements/children as props:** Pass heavy or static UI as `children` or JSX props. Elements created in a parent scope keep stable references across sibling state updates, skipping sub-tree execution without `React.memo`.
+
+```tsx
+// PREFER: sub-tree doesn't re-render on scroll/state update
+export const ScrollableContainer = ({ children }: { children: React.ReactNode }) => {
+  const [pos, setPos] = useState(0);
+  return (
+    <div onScroll={(e) => setPos(e.currentTarget.scrollTop)}>
+      <FloatingHeader position={pos} />
+      {children}
+    </div>
+  );
+};
+```
+
+## 2. Dynamic Component Architecture & Render Props
+
+- Avoid bloat props (`iconColor`, `iconSize`, `isLoading`); accept `ReactElement` or render props.
+- Use render props when parent state must be exposed to slot UI: `(state) => ReactElement`.
+- `<Component />` in JSX creates a lightweight element object; heavy work runs only when the component renders.
+
+## 3. Memoization (`useMemo`, `useCallback`, `React.memo`)
+
+- **Default:** Do not preemptively memoize everyday props.
+- **Valid `React.memo` use:** Frequent re-renders with identical props AND expensive sub-trees. All props must have stable references.
+
+### Anti-patterns to fix
+- Unmemoized JSX/function `children` passed into `React.memo` (new reference every render).
+- Spreading uncurated props into memoized components (`<Memo {...props} />`).
+- Hook return values passed to memoized children without stable references.
+
+## 4. Reconciliation, Diffing & State Lifetime
+
+- React identifies instances by **type + position** in the Fiber tree.
+- **Never declare components inside components** — resets state and forces remounts every render.
+- Same type at same position preserves state across conditional branches.
+- Use explicit `key` to reset state when identity changes: `<UserProfile key={userId} userId={userId} />`.
+
+## 5. Refs, Closures & Synchronous Access
+
+- Updating `ref.current` does not re-render.
+- `useCallback` / `useEffect` capture render-scope variables (stale closures).
+- Use refs for fresh values in callbacks without re-subscribing effects.
+
+## 6. Layout, DOM & Error Boundaries
+
+- `useLayoutEffect` for sync DOM measure/mutate before paint; `useEffect` for everything else.
+- Portals escape DOM hierarchy but keep React bubbling, context, and lifecycle.
+- Error boundaries catch render/lifecycle errors, **not** async/event-handler errors — set state or re-throw during render for those.

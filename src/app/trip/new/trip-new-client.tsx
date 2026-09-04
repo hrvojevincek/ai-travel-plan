@@ -127,6 +127,7 @@ export function TripNewClient() {
   return (
     <>
       <TripView
+        key={`${destination}-${duration}-${placeId ?? ""}`}
         trip={trip}
         expectedDays={duration}
         destination={destination}

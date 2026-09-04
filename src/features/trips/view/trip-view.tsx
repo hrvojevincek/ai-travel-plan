@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Clock, MapPin, RefreshCw, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,30 +73,33 @@ export function TripView({
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const activeDay = Math.min(Math.max(selectedDay, 1), expectedDays);
 
-  const mapActivities: MapActivity[] = [];
-  for (const d of days) {
-    if (!d) continue;
-    const acts = d.activities ?? [];
-    acts.forEach((a, i) => {
-      if (
-        a &&
-        typeof a.latitude === "number" &&
-        typeof a.longitude === "number" &&
-        a.name
-      ) {
-        mapActivities.push({
-          id: activityId(d.dayNumber ?? 0, i),
-          name: a.name,
-          latitude: a.latitude,
-          longitude: a.longitude,
-          dayNumber: d.dayNumber ?? 0,
-          type: a.type,
-          placeId: a.placeId ?? null,
-          photoReference: a.photoReference ?? null,
-        });
-      }
-    });
-  }
+  const mapActivities = useMemo((): MapActivity[] => {
+    const result: MapActivity[] = [];
+    for (const d of days) {
+      if (!d) continue;
+      const acts = d.activities ?? [];
+      acts.forEach((a, i) => {
+        if (
+          a &&
+          typeof a.latitude === "number" &&
+          typeof a.longitude === "number" &&
+          a.name
+        ) {
+          result.push({
+            id: activityId(d.dayNumber ?? 0, i),
+            name: a.name,
+            latitude: a.latitude,
+            longitude: a.longitude,
+            dayNumber: d.dayNumber ?? 0,
+            type: a.type,
+            placeId: a.placeId ?? null,
+            photoReference: a.photoReference ?? null,
+          });
+        }
+      });
+    }
+    return result;
+  }, [days]);
 
   return (
     <div className="flex min-h-screen w-full flex-col sm:grid sm:grid-cols-3">
@@ -272,7 +275,7 @@ function DaySection({
             const canSwap = Boolean(onSwapActivity && a?.id);
             const isSwapping = Boolean(a?.id && swappingActivityId === a.id);
             return (
-              <li key={`day-${dayNumber}-${SKELETON_KEYS[i] ?? i}`}>
+              <li key={a?.id ?? id}>
                 <ActivityCard
                   activity={a}
                   isSelected={selectedId === id}

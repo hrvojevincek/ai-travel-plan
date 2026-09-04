@@ -1,7 +1,7 @@
 "use client";
 
 import { CameraOff, MapPin } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Map,
   MapControls,
@@ -43,6 +43,17 @@ export function TripMap({
   onSelectActivity,
 }: TripMapProps) {
   const suppressMapClickRef = useRef(false);
+  const onSelectActivityRef = useRef(onSelectActivity);
+  onSelectActivityRef.current = onSelectActivity;
+
+  const clearSelection = useCallback(() => {
+    onSelectActivityRef.current(null);
+  }, []);
+
+  const selectActivity = useCallback((id: string) => {
+    onSelectActivityRef.current(id);
+  }, []);
+
   const center = useMemo((): [number, number] => {
     if (destinationLat != null && destinationLng != null) {
       return [destinationLng, destinationLat];
@@ -61,7 +72,7 @@ export function TripMap({
       <Map center={center} zoom={zoom}>
         <MapClickHandler
           suppressRef={suppressMapClickRef}
-          onClick={() => onSelectActivity(null)}
+          onClick={clearSelection}
         />
         <BoundsFitter activities={activities} fallbackCenter={center} />
         <FocusSelected activity={selected} />
@@ -72,7 +83,7 @@ export function TripMap({
             activity={a}
             isSelected={a.id === selectedActivityId}
             suppressRef={suppressMapClickRef}
-            onClick={() => onSelectActivity(a.id)}
+            onClick={selectActivity}
           />
         ))}
         {selected && (
@@ -82,7 +93,7 @@ export function TripMap({
             offset={[0, -12]}
             closeButton
             closeOnClick={false}
-            onClose={() => onSelectActivity(null)}
+            onClose={clearSelection}
           >
             <ActivityInfoContent
               key={`${selected.id}-${selected.photoReference ?? "none"}-${selected.placeId ?? "none"}`}
@@ -186,13 +197,13 @@ function ActivityMarker({
 }: {
   activity: MapActivity;
   isSelected: boolean;
-  onClick: () => void;
+  onClick: (id: string) => void;
   suppressRef: React.RefObject<boolean>;
 }) {
   const handleClick = (e: MouseEvent) => {
     e.stopPropagation();
     suppressRef.current = true;
-    onClick();
+    onClick(activity.id);
     requestAnimationFrame(() => {
       suppressRef.current = false;
     });
